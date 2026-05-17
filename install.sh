@@ -178,20 +178,11 @@ fi
 
 chmod +x "${ROOT}/install/batch-install.sh" 2>/dev/null || true
 
-if command -v gum >/dev/null 2>&1 && [[ "${INTERACTIVE}" == "1" ]]; then
-  gum spin --spinner minidot --title "Installing skills..." -- \
-    bash "${ROOT}/install/batch-install.sh" \
-    --mode "${MODE}" \
-    --skills-dir "${SKILLS_DIR}" \
-    --skills "${SKILLS_CSV}" \
-    --platforms "${PLATFORMS_CSV}"
-else
-  bash "${ROOT}/install/batch-install.sh" \
-    --mode "${MODE}" \
-    --skills-dir "${SKILLS_DIR}" \
-    --skills "${SKILLS_CSV}" \
-    --platforms "${PLATFORMS_CSV}"
-fi
+bash "${ROOT}/install/batch-install.sh" \
+  --mode "${MODE}" \
+  --skills-dir "${SKILLS_DIR}" \
+  --skills "${SKILLS_CSV}" \
+  --platforms "${PLATFORMS_CSV}"
 
 if command -v gum >/dev/null 2>&1; then
   gum style --foreground 10 --padding "0 1" "Installation finished."

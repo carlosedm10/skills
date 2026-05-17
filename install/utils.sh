@@ -49,13 +49,40 @@ escape_toml_double() {
   printf '%s' "$s"
 }
 
+# Parse first semver from `gum version` output (e.g. "gum version v0.14.5").
+gum_semver() {
+  gum --version 2>/dev/null | head -n1 | sed -nE 's/.*v?([0-9]+\.[0-9]+\.[0-9]+).*/\1/p'
+}
+
+# True if $1 >= $2 (semver x.y.z only).
+semver_ge() {
+  local a="$1" b="$2"
+  [[ -n "$a" && -n "$b" ]] || return 1
+  [[ "$(printf '%s\n' "$b" "$a" | sort -V | tail -n1)" == "$a" ]]
+}
+
 ensure_gum() {
-  command -v gum >/dev/null 2>&1 && return 0
+  if command -v gum >/dev/null 2>&1; then
+    local gv
+    gv="$(gum_semver)"
+    if ! semver_ge "${gv}" "0.4.0"; then
+      printf '%s\n' "gum is too old (${gv:-unknown}); need >= 0.4.0 for --no-limit multi-select. Upgrade: brew upgrade gum" >&2
+      return 1
+    fi
+    return 0
+  fi
 
   if [[ "${OSTYPE:-}" == darwin* ]] && command -v brew >/dev/null 2>&1; then
     printf '%s\n' "Installing gum via Homebrew..." >&2
     brew install gum >/dev/null 2>&1 || brew install gum
-    command -v gum >/dev/null 2>&1 && return 0
+    command -v gum >/dev/null 2>&1 || return 1
+    local gv2
+    gv2="$(gum_semver)"
+    if ! semver_ge "${gv2}" "0.4.0"; then
+      printf '%s\n' "gum installed but version ${gv2:-unknown} is below 0.4.0; upgrade: brew upgrade gum" >&2
+      return 1
+    fi
+    return 0
   fi
 
   if command -v go >/dev/null 2>&1; then
@@ -64,7 +91,14 @@ ensure_gum() {
     mkdir -p "$gopath_bin"
     GOPATH="${GOPATH:-$HOME/go}" go install github.com/charmbracelet/gum@latest
     export PATH="$gopath_bin:$PATH"
-    command -v gum >/dev/null 2>&1 && return 0
+    command -v gum >/dev/null 2>&1 || return 1
+    local gv3
+    gv3="$(gum_semver)"
+    if ! semver_ge "${gv3}" "0.4.0"; then
+      printf '%s\n' "gum from go install is too old (${gv3:-unknown}); need >= 0.4.0" >&2
+      return 1
+    fi
+    return 0
   fi
 
   return 1
@@ -93,13 +127,18 @@ gum_banner() {
 _gum_choose_multi() {
   local header="$1"
   shift
-  # --no-limit works across all gum versions; --limit 0 means "0 selections allowed"
-  # in gum <0.11 which causes a blank unusable TUI.
-  gum choose --no-limit --selected-prefix "[x] " --unselected-prefix "[ ] " \
-    --header "$header" "$@" 2>/dev/null \
-    || gum choose --limit 0 --selected-prefix "[x] " --unselected-prefix "[ ] " \
-      --header "$header" "$@" \
-    || true
+  # Never redirect stderr here: when stdout is a pipe ($()), gum renders the TUI on stderr.
+  gum choose --no-limit \
+    --selected-prefix "[x] " \
+    --unselected-prefix "[ ] " \
+    --header "$header" \
+    "$@"
+}
+
+_gum_choose_one() {
+  local header="$1"
+  shift
+  gum choose --header "$header" "$@"
 }
 
 choose_platforms_interactive() {
@@ -161,7 +200,7 @@ choose_skills_interactive() {
 
 choose_mode_interactive() {
   if command -v gum >/dev/null 2>&1; then
-    gum choose --header "Install mode:" "symlink" "copy"
+    _gum_choose_one "Install mode:" "symlink" "copy"
   else
     printf 'Install mode [symlink/copy] (default copy): ' >&2
     local m
