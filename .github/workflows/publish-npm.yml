@@ -5,11 +5,16 @@ on:
     tags:
       - "v*"
 
+# Trusted publishing (OIDC): https://docs.npmjs.com/trusted-publishers
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    # If you set an "Environment name" on npm Trusted Publisher, uncomment and match exactly:
+    # environment: npm-publish
 
     steps:
       - name: Checkout
@@ -18,13 +23,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
+          check-latest: true
           registry-url: https://registry.npmjs.org
+
+      - name: Ensure npm CLI supports trusted publishing
+        run: npm install -g npm@^11.5.1
 
       - name: Verify package metadata
         run: npm pkg fix
 
-      - name: Publish package
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish package (OIDC — no NPM_TOKEN)
         run: npm publish --access public
