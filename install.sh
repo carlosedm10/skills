@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# When piped via `curl | bash`, BASH_SOURCE[0] is unset / not a real file.
+# Download the repo tarball to a temp dir and re-run from there.
+if [[ -z "${BASH_SOURCE[0]:-}" ]] || [[ ! -f "${BASH_SOURCE[0]:-}" ]]; then
+  TMP="$(mktemp -d)"
+  trap 'rm -rf "$TMP"' EXIT
+  echo "Downloading skills repo..."
+  curl -fsSL "https://github.com/carlosedm10/skills/archive/refs/heads/main.tar.gz" \
+    | tar -xz -C "$TMP" --strip-components=1
+  bash "$TMP/install.sh" "$@"
+  exit $?
+fi
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UTILS="${ROOT}/install/utils.sh"
 # shellcheck source=install/utils.sh
