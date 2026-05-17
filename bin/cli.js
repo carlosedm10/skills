@@ -4,7 +4,7 @@
  *
  * Usage:
  *   npx agent-skills-template [install] [install.sh args...]
- *   skills install --platforms cursor --skills all --mode copy
+ *   npm i -g agent-skills-template && agent-skills-template install --help
  */
 
 const { spawnSync } = require("child_process");

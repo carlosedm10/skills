@@ -1,12 +1,16 @@
 {
   "name": "agent-skills-template",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Template repository for custom AI agent skills with a multi-platform terminal installer (Cursor, Claude Code, Codex, OpenCode, Pi).",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_USERNAME/agent-skills-template.git"
+    "url": "git+https://github.com/carlosedm10/skills.git"
   },
+  "bugs": {
+    "url": "https://github.com/carlosedm10/skills/issues"
+  },
+  "homepage": "https://github.com/carlosedm10/skills#readme",
   "keywords": [
     "cursor",
     "claude",
@@ -21,7 +25,7 @@
     "node": ">=18"
   },
   "bin": {
-    "skills": "./bin/cli.js"
+    "agent-skills-template": "bin/cli.js"
   },
   "files": [
     "bin/",

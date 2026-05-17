@@ -2,6 +2,8 @@
 
 Author [**Agent Skills**](https://agentskills.io/)-compatible bundles once and install them to multiple AI coding tools.
 
+**npm:** [`agent-skills-template`](https://www.npmjs.com/package/agent-skills-template)
+
 ## Repository layout
 
 | Path | Purpose |
@@ -16,26 +18,44 @@ Author [**Agent Skills**](https://agentskills.io/)-compatible bundles once and i
 ### Clone and run
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/agent-skills-template.git
-cd agent-skills-template
+git clone https://github.com/carlosedm10/skills.git
+cd skills
 ./install.sh
 ```
 
-### curl (remote — publish first)
+### curl (remote)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/agent-skills-template/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/carlosedm10/skills/main/install.sh | bash
 ```
 
-### npm / bun (from a published package or local path)
+### npm / bun (published package)
+
+The CLI executable name matches the package name (`agent-skills-template`).
 
 ```bash
-npx agent-skills-template install
-# or
-bunx agent-skills-template install
+npx agent-skills-template install --help
+# optional verb — forwarded to install.sh as well
+npx agent-skills-template --yes --platforms cursor --skills all --mode copy
 ```
 
-Global CLI name: **`skills`** (see [`package.json`](package.json) `bin`).
+```bash
+bunx agent-skills-template install --help
+```
+
+Global install (optional):
+
+```bash
+npm install -g agent-skills-template
+agent-skills-template install --help
+```
+
+### Local package folder (no publish)
+
+```bash
+cd /path/to/skills
+npx .
+```
 
 ### Non-interactive flags
 
@@ -77,11 +97,44 @@ Create a new skill skeleton:
 ./install.sh new my-skill-name
 ```
 
-## Publishing your fork
+## Publishing to npm
 
-1. Replace `YOUR_USERNAME` / repo URLs in [`README.md`](README.md) and [`package.json`](package.json).
-2. Optionally publish to npm: `npm publish --access public`.
-3. Point curl installs at your `main` branch `install.sh`.
+### Manual release
+
+1. Bump **`version`** in [`package.json`](package.json).
+2. Commit and push.
+3. Create and push a matching git tag (workflow below uses this):
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+Or publish locally:
+
+```bash
+npm publish --access public
+```
+
+### Automated release (GitHub Actions)
+
+Pushing a version tag **`v*`** runs [`.github/workflows/publish-npm.yml`](.github/workflows/publish-npm.yml).
+
+1. In the GitHub repo: **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: **`NPM_TOKEN`**
+   - Value: an npm [**granular access token**](https://docs.npmjs.com/about-access-tokens) or [**automation token**](https://docs.npmjs.com/creating-and-viewing-access-tokens) with **publish** permission for this package.
+2. Bump `package.json` **`version`**, commit to `main`, then tag and push:
+
+```bash
+npm version patch   # or edit package.json manually
+git push origin main && git push origin --tags
+```
+
+The workflow runs **`npm pkg fix`** before publish so `repository` / `bin` metadata stays valid.
+
+## Forking this template
+
+Replace `carlosedm10/skills` with your GitHub user and repo name in [`README.md`](README.md) and [`package.json`](package.json), pick an unused npm **`name`**, then publish under your scope if needed (`@you/agent-skills-template` + `npm publish --access public`).
 
 ## Customization
 
@@ -92,6 +145,7 @@ Create a new skill skeleton:
 
 ## Troubleshooting
 
+- **`npm` removed `bin` on publish**: older `package.json` builds used `"bin": { "skills": "./bin/cli.js" }`, which some npm versions normalize incorrectly. This repo uses `"bin": "./bin/cli.js"` so the CLI name matches the package (**`agent-skills-template`**). Use **v1.0.1+** on npm.
 - **Interactive UI**: install [gum](https://github.com/charmbracelet/gum) for multi-select menus (`brew install gum`). Without gum, the script falls back to plain prompts.
 - **`gum choose` flags**: the installer tries `--limit 0`, then `--no-limit`, then `--limit 99` for compatibility across gum versions.
 - **Sandboxed environments**: installing under `~/.cursor`, `~/.codex`, etc., requires a normal user home directory (some CI sandboxes block dot-directories).
