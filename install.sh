@@ -121,21 +121,12 @@ while IFS= read -r line; do
 done < <(list_skill_names "${SKILLS_DIR}")
 
 if [[ "$INTERACTIVE" == "1" ]]; then
-  gum_banner "Agent skills installer" \
-    "Install bundles from ${SKILLS_DIR} to your favorite AI tools."
-
-  if [[ "${ASSUME_YES}" != "1" ]]; then
-    if command -v gum >/dev/null 2>&1; then
-      gum confirm "Ready to select platforms and skills?" || exit 0
-    else
-      read -r -p "Continue with interactive install? [y/N] " ans || true
-      [[ "${ans:-}" =~ ^[Yy]$ ]] || exit 0
-    fi
-  fi
-
   if ! ensure_gum; then
     printf '%s\n' "Note: gum not installed — using plain prompts (install gum for a richer UI)." >&2
   fi
+
+  gum_banner "Agent skills installer" \
+    "Select platforms and skills to install."
 
   SELECTED_PLATFORMS=()
   while IFS= read -r line; do

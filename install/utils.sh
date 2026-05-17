@@ -74,7 +74,8 @@ gum_banner() {
   local title="$1"
   shift
   if command -v gum >/dev/null 2>&1; then
-    gum style --border rounded --padding "1 2" --margin "1" "$title" "$@"
+    gum style --border rounded --padding "1 2" --margin "1 0" \
+      --width 60 "$title" "$@"
   else
     printf '\n━━ %s ━━\n%s\n\n' "$title" "$(printf '%s\n' "$@")"
   fi
@@ -83,11 +84,11 @@ gum_banner() {
 _gum_choose_multi() {
   local header="$1"
   shift
-  gum choose --limit 0 --selected-prefix "[x] " --unselected-prefix "[ ] " \
+  # --no-limit works across all gum versions; --limit 0 means "0 selections allowed"
+  # in gum <0.11 which causes a blank unusable TUI.
+  gum choose --no-limit --selected-prefix "[x] " --unselected-prefix "[ ] " \
     --header "$header" "$@" 2>/dev/null \
-    || gum choose --no-limit --selected-prefix "[x] " --unselected-prefix "[ ] " \
-      --header "$header" "$@" 2>/dev/null \
-    || gum choose --limit 99 --selected-prefix "[x] " --unselected-prefix "[ ] " \
+    || gum choose --limit 0 --selected-prefix "[x] " --unselected-prefix "[ ] " \
       --header "$header" "$@" \
     || true
 }
