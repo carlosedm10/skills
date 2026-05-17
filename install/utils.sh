@@ -74,8 +74,17 @@ gum_banner() {
   local title="$1"
   shift
   if command -v gum >/dev/null 2>&1; then
-    gum style --border rounded --padding "1 2" --margin "1 0" \
-      --width 60 "$title" "$@"
+    local subtitle
+    subtitle="$(printf '%s\n' "$@")"
+    local styled_title
+    styled_title="$(gum style --foreground 212 --bold "$title")"
+    local styled_sub
+    styled_sub="$(gum style --foreground 245 "$subtitle")"
+    gum style \
+      --border double --border-foreground 212 \
+      --padding "1 3" --margin "1 0" \
+      --width 58 \
+      "${styled_title}" "${styled_sub}"
   else
     printf '\n━━ %s ━━\n%s\n\n' "$title" "$(printf '%s\n' "$@")"
   fi

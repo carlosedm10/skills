@@ -118,7 +118,7 @@ mkdir -p "${SKILLS_DIR}"
 ALL_SKILLS=()
 while IFS= read -r line; do
   [[ -n "${line}" ]] && ALL_SKILLS+=("${line}")
-done < <(list_skill_names "${SKILLS_DIR}")
+done <<< "$(list_skill_names "${SKILLS_DIR}")"
 
 if [[ "$INTERACTIVE" == "1" ]]; then
   if ! ensure_gum; then
@@ -128,19 +128,22 @@ if [[ "$INTERACTIVE" == "1" ]]; then
   gum_banner "Agent skills installer" \
     "Select platforms and skills to install."
 
+  local platforms_raw skills_raw
+  platforms_raw="$(choose_platforms_interactive)" || true
   SELECTED_PLATFORMS=()
   while IFS= read -r line; do
     [[ -n "${line}" ]] && SELECTED_PLATFORMS+=("${line}")
-  done < <(choose_platforms_interactive)
+  done <<< "${platforms_raw}"
   if [[ ${#SELECTED_PLATFORMS[@]} -eq 0 || -z "${SELECTED_PLATFORMS[0]:-}" ]]; then
     printf 'No platforms selected.\n' >&2
     exit 1
   fi
 
+  skills_raw="$(choose_skills_interactive "${ALL_SKILLS[@]}")" || true
   SELECTED_SKILLS=()
   while IFS= read -r line; do
     [[ -n "${line}" ]] && SELECTED_SKILLS+=("${line}")
-  done < <(choose_skills_interactive "${ALL_SKILLS[@]}")
+  done <<< "${skills_raw}"
   if [[ ${#SELECTED_SKILLS[@]} -eq 0 || -z "${SELECTED_SKILLS[0]:-}" ]]; then
     printf 'No skills selected.\n' >&2
     exit 1
