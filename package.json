@@ -1,6 +1,6 @@
 {
   "name": "agent-skills-template",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Template repository for custom AI agent skills with a multi-platform terminal installer (Cursor, Claude Code, Codex, OpenCode, Pi).",
   "license": "MIT",
   "repository": {

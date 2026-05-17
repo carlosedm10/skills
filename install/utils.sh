@@ -106,21 +106,30 @@ ensure_gum() {
 
 gum_banner() {
   local title="$1"
-  shift
+  local subtitle="$2"
+  local url="${3:-}"
   if command -v gum >/dev/null 2>&1; then
-    local subtitle
-    subtitle="$(printf '%s\n' "$@")"
-    local styled_title
+    local styled_title styled_sub styled_url
     styled_title="$(gum style --foreground 212 --bold "$title")"
-    local styled_sub
     styled_sub="$(gum style --foreground 245 "$subtitle")"
-    gum style \
-      --border double --border-foreground 212 \
-      --padding "1 3" --margin "1 0" \
-      --width 58 \
-      "${styled_title}" "${styled_sub}"
+    if [[ -n "$url" ]]; then
+      styled_url="$(gum style --foreground 240 --faint "$url")"
+      gum style \
+        --border double --border-foreground 212 \
+        --padding "1 3" --margin "1 0" \
+        --width 58 \
+        "${styled_title}" "${styled_sub}" "${styled_url}"
+    else
+      gum style \
+        --border double --border-foreground 212 \
+        --padding "1 3" --margin "1 0" \
+        --width 58 \
+        "${styled_title}" "${styled_sub}"
+    fi
   else
-    printf '\n━━ %s ━━\n%s\n\n' "$title" "$(printf '%s\n' "$@")"
+    printf '\n━━ %s ━━\n%s\n' "$title" "$subtitle"
+    [[ -n "$url" ]] && printf '%s\n' "$url"
+    printf '\n'
   fi
 }
 
@@ -141,8 +150,20 @@ _gum_choose_one() {
   gum choose --header "$header" "$@"
 }
 
+_expand_without_all() {
+  local item
+  for item in "$@"; do
+    [[ "$item" != "All" ]] && printf '%s\n' "$item"
+  done
+}
+
+_selection_includes_all() {
+  printf '%s\n' "$1" | grep -Fxq "All"
+}
+
 choose_platforms_interactive() {
   local choices=(
+    "All"
     "cursor"
     "claude-code"
     "codex"
@@ -151,16 +172,24 @@ choose_platforms_interactive() {
     "agents"
   )
   if command -v gum >/dev/null 2>&1; then
-    _gum_choose_multi "Select platforms (↑/↓, space to toggle, enter to confirm):" \
-      "${choices[@]}"
+    local raw
+    raw="$(_gum_choose_multi "Select platforms (↑/↓, space to toggle, enter — pick All for everything):" \
+      "${choices[@]}")"
+    if _selection_includes_all "$raw"; then
+      _expand_without_all "${choices[@]}"
+    else
+      printf '%s\n' "$raw"
+    fi
   else
     printf '%s\n' "Available platforms: ${choices[*]}" >&2
-    printf 'Enter comma-separated names (default: all): ' >&2
+    printf 'Enter comma-separated names, \"all\", or empty for all: ' >&2
     local line
     read -r line || true
     line="$(echo "$line" | xargs)"
-    if [[ -z "$line" ]]; then
-      printf '%s\n' "${choices[@]}"
+    local line_lc
+    line_lc="$(echo "$line" | tr '[:upper:]' '[:lower:]')"
+    if [[ -z "$line" || "$line_lc" == "all" ]]; then
+      _expand_without_all "${choices[@]}"
       return
     fi
     IFS=',' read -ra picked <<<"$line"
@@ -178,15 +207,25 @@ choose_skills_interactive() {
     return 1
   fi
   if command -v gum >/dev/null 2>&1; then
-    _gum_choose_multi "Select skills (↑/↓, space to toggle, enter to confirm):" \
-      "${names[@]}"
+    local choices=( "All" )
+    choices+=( "${names[@]}" )
+    local raw
+    raw="$(_gum_choose_multi "Select skills (↑/↓, space to toggle, enter — pick All for everything):" \
+      "${choices[@]}")"
+    if _selection_includes_all "$raw"; then
+      printf '%s\n' "${names[@]}"
+    else
+      printf '%s\n' "$raw"
+    fi
   else
     printf '%s\n' "Skills: ${names[*]}" >&2
-    printf 'Enter comma-separated names or "all" (default: all): ' >&2
+    printf 'Enter comma-separated names or \"all\" (default: all): ' >&2
     local line
     read -r line || true
     line="$(echo "$line" | xargs)"
-    if [[ -z "$line" || "$line" == "all" ]]; then
+    local line_lc
+    line_lc="$(echo "$line" | tr '[:upper:]' '[:lower:]')"
+    if [[ -z "$line" || "$line_lc" == "all" ]]; then
       printf '%s\n' "${names[@]}"
       return
     fi

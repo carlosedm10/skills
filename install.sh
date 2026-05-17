@@ -125,8 +125,10 @@ if [[ "$INTERACTIVE" == "1" ]]; then
     printf '%s\n' "Note: gum not installed — using plain prompts (install gum for a richer UI)." >&2
   fi
 
-  gum_banner "Agent skills installer" \
-    "Select platforms and skills to install."
+  gum_banner \
+    "Agent Skills — by Carlos Eduardo" \
+    "Select platforms and skills to install." \
+    "https://carloseduardo.es/en"
 
   platforms_raw="$(choose_platforms_interactive)" || true
   SELECTED_PLATFORMS=()
