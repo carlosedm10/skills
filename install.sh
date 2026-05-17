@@ -128,7 +128,6 @@ if [[ "$INTERACTIVE" == "1" ]]; then
   gum_banner "Agent skills installer" \
     "Select platforms and skills to install."
 
-  local platforms_raw skills_raw
   platforms_raw="$(choose_platforms_interactive)" || true
   SELECTED_PLATFORMS=()
   while IFS= read -r line; do
