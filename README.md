@@ -83,6 +83,19 @@ Create a new skill skeleton:
 2. Optionally publish to npm: `npm publish --access public`.
 3. Point curl installs at your `main` branch `install.sh`.
 
+## Customization
+
+- **Fork-only workflow**: keep skills under [`skills/`](skills/) and run `./install.sh` after edits; use **`symlink`** mode so global installs always track your clone.
+- **Per-project installs**: run the same installer from the repo checkout with **`copy`** mode, then copy specific bundles into a project’s `.cursor/skills/`, `.claude/skills/`, `.opencode/skills/`, etc., if you want repo-local versions instead of global ones.
+- **Codex**: entries are appended to `~/.codex/config.toml` under `# agent-skills-template: <skill>` markers—delete those blocks to unregister without removing files from `~/.codex/skills/`.
+- **Pi**: if your Pi settings use [`skills.customDirectories`](https://github.com/earendil-works/pi), add paths there when you prefer not to use the default Pi skill dirs.
+
+## Troubleshooting
+
+- **Interactive UI**: install [gum](https://github.com/charmbracelet/gum) for multi-select menus (`brew install gum`). Without gum, the script falls back to plain prompts.
+- **`gum choose` flags**: the installer tries `--limit 0`, then `--no-limit`, then `--limit 99` for compatibility across gum versions.
+- **Sandboxed environments**: installing under `~/.cursor`, `~/.codex`, etc., requires a normal user home directory (some CI sandboxes block dot-directories).
+
 ## License
 
 MIT
