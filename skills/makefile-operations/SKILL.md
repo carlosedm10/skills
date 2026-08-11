@@ -1,7 +1,8 @@
 ---
 name: makefile-operations
-description: Manages Makefile-driven Docker Compose workflows with safe command ordering, container lifecycle hygiene, logs, terminal usage, and package manager tasks. Use when editing/running Makefile targets, troubleshooting compose commands, managing backend/frontend dependencies, or standardizing local dev commands.
+description: Manages Makefile-driven Docker Compose workflows with safe command ordering, container lifecycle hygiene, logs, terminal usage, and package manager tasks. Use when editing/running Makefile targets, troubleshooting compose commands, managing backend/frontend dependencies, standardizing local dev commands, or creating CI-facing make targets.
 ---
+
 # Makefile Operations
 
 ## Scope
@@ -18,9 +19,10 @@ Use this skill when working on repositories that orchestrate development tasks f
    - Stop/down with `--remove-orphans` when tearing down
 3. Keep backend and frontend package managers isolated:
    - Backend: `uv` in backend container
-   - Frontend: `npm` in frontend container
+   - Frontend: `bun` in frontend container
 4. Use service-specific logs and shells instead of broad noisy commands.
 5. If a command can be destructive, call it out clearly before proposing/running it.
+6. **CI parity**: GitHub Actions must call `make <target>` — never duplicate lint/test/build commands in workflow YAML. If CI needs a step, add a Makefile target first.
 
 ## Command Ordering Standard
 
@@ -30,9 +32,9 @@ Follow this order unless the user asks otherwise:
    - `make build` for rebuilds
    - `make start` for normal startup
 2. **Run app tasks**
-   - Django ops (`migrate`, `makemigrations`, tests)
+   - Django ops (`migrate`, `makemigrations`) or FastAPI/alembic ops (`alembic-upgrade`, `alembic-revision`)
    - Formatting/lint
-   - Package changes (`uv-*`, `npm-*`)
+   - Package changes (`uv-*`, `bun-*`)
 3. **Inspect**
    - `make show-backend-logs`, `make show-frontend-logs`, `make show-postgres-logs`
    - `make backend-shell` / `make postgres-shell` for deeper checks
@@ -40,6 +42,22 @@ Follow this order unless the user asks otherwise:
    - `make stop` (must map to `docker compose down --remove-orphans`)
 
 If a workflow needs one-off commands, keep them deterministic and container-scoped.
+
+## CI-facing targets (required for every project)
+
+Every scaffolded project must expose these aggregate targets for GitHub Actions:
+
+| Target | Purpose |
+|--------|---------|
+| `lint` | Runs `lint-backend` + `lint-frontend` |
+| `lint-backend` | `uv run ruff check` in backend container |
+| `lint-frontend` | `bun run lint` in frontend container |
+| `test` | Runs `test-backend` + `test-frontend` |
+| `test-backend` | pytest or Django test runner in backend container |
+| `test-frontend` | frontend test command (if configured) |
+| `build` | `docker compose build` |
+
+GitHub Actions workflows call only these targets. See **github-actions** skill.
 
 ## Docker Compose Guidance
 
@@ -104,11 +122,14 @@ Suggested section set for this repository style:
 # ----------------------------- Frontend Package Management ----------------------------- #
 # ----------------------------- Terminals ----------------------------- #
 # ----------------------------- Debugging ----------------------------- #
-# ----------------------------- Django/Or similar ----------------------------- #
+# ----------------------------- Django ----------------------------- #
+# ----------------------------- FastAPI / Alembic ----------------------------- #
 # ----------------------------- Code Formatting ----------------------------- #
 # ----------------------------- Testing ----------------------------- #
 # ----------------------------- ⛔️ DANGER ZONE ⛔️ ----------------------------- #
 ```
+
+Include **Django** or **FastAPI / Alembic** section based on backend type — not both unless the project genuinely uses both.
 
 ## Section `.PHONY` and Ordering Rules
 
@@ -139,36 +160,58 @@ Example:
 
 ```makefile
 lint-backend:
-	docker compose exec -T backend-finkelly sh -c "uv run ruff check api/"
+	docker compose exec -T backend-PROJECT_SLUG sh -c "uv run ruff check ."
 
 lint-frontend:
-	docker compose exec -T frontend-finkelly sh -c "npm run lint"
+	docker compose exec -T frontend-PROJECT_SLUG sh -c "bun run lint"
 
 lint:
 	make lint-backend
 	make lint-frontend
 ```
 
+## Backend operations by stack
+
+### Django / DRF
+
+```makefile
+migrate:
+	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py migrate
+
+makemigrations:
+	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py makemigrations
+
+test-backend:
+	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py test
+```
+
+### FastAPI / Alembic
+
+```makefile
+alembic-upgrade:
+	docker compose exec -T backend-PROJECT_SLUG uv run alembic upgrade head
+
+alembic-revision:
+	docker compose exec -T backend-PROJECT_SLUG uv run alembic revision --autogenerate -m "$(MSG)"
+
+test-backend:
+	docker compose exec -T backend-PROJECT_SLUG uv run pytest
+```
+
 ## Package Manager Conventions
 
-### Backend (`uv/poetry/pipenv/... whatever the project uses`)
+### Backend (`uv`)
 
-- Keep lockfile actions explicit:
-  - lock
-  - add/remove
-  - full upgrade vs single-package upgrade
-  - lock regenerate/refresh
+- Keep lockfile actions explicit: lock, add/remove, full upgrade vs single-package upgrade, lock regenerate/refresh.
 - Run backend package commands in backend service context, usually with `run --rm`.
 
-### Frontend (`npm/pnpm/bun/... whatever the project uses`)
+### Frontend (`bun`)
 
-- Run npm commands in frontend service context.
+- Run bun commands in frontend service context.
 - Keep lockfile regeneration explicit and reproducible.
 - Pair frontend formatting and project-specific checks in one target when practical.
 
-## Package Management Target Patterns (Flexible)
-
-Use this section to define package workflows in any project, regardless of package manager.
+## Package Management Target Patterns
 
 ### Required operations
 
@@ -189,42 +232,7 @@ Every package-management section should provide explicit targets for:
   - with `PKG` -> single-package update
 - Document usage immediately above the targets with short examples.
 
-### Container execution rules
-
-- Use one-off commands with `docker compose run --rm <service> ...` when package operations do not require a long-running container session.
-- Keep package operations scoped to the service that owns the lockfile.
-- Prefer deterministic commands that modify lockfiles in a predictable way.
-
-### Template (manager-agnostic)
-
-```makefile
-# Usage:
-#   make <pm>-add PKG="package[extras]==version"
-#   make <pm>-update
-#   make <pm>-update PKG=foo
-#   make <pm>-remove PKG=foo
-#   make <pm>-lock-regenerate
-<pm>-lock:
-	docker compose run --rm <service> <pm-cmd> <lock-command>
-
-<pm>-add:
-	docker compose run --rm <service> <pm-cmd> <add-command> $(PKG)
-
-<pm>-update:
-ifeq ($(PKG),)
-	docker compose run --rm <service> <pm-cmd> <update-all-command>
-else
-	docker compose run --rm <service> <pm-cmd> <update-one-command> $(PKG)
-endif
-
-<pm>-remove:
-	docker compose run --rm <service> <pm-cmd> <remove-command> $(PKG)
-
-<pm>-lock-regenerate:
-	docker compose run --rm <service> <pm-cmd> <lock-regenerate-command>
-```
-
-### Concrete example from this repository (`uv`)
+### Concrete example (`uv`)
 
 ```makefile
 .PHONY: uv-lock uv-add uv-update uv-remove uv-lock-regenerate
@@ -236,30 +244,43 @@ endif
 #   make uv-remove PKG=foo
 #   make uv-lock-regenerate   # refresh lock from scratch
 uv-lock:
-	docker compose run --rm backend-finkelly uv lock
+	docker compose run --rm backend-PROJECT_SLUG uv lock
 
 uv-add:
-	docker compose run --rm backend-finkelly uv add $(PKG)
+	docker compose run --rm backend-PROJECT_SLUG uv add $(PKG)
 
 uv-update:
 ifeq ($(PKG),)
-	docker compose run --rm backend-finkelly uv lock --upgrade
+	docker compose run --rm backend-PROJECT_SLUG uv lock --upgrade
 else
-	docker compose run --rm backend-finkelly uv lock --upgrade-package $(PKG)
+	docker compose run --rm backend-PROJECT_SLUG uv lock --upgrade-package $(PKG)
 endif
 
 uv-remove:
-	docker compose run --rm backend-finkelly uv remove $(PKG)
+	docker compose run --rm backend-PROJECT_SLUG uv remove $(PKG)
 
 uv-lock-regenerate:
-	docker compose run --rm backend-finkelly uv lock --refresh
+	docker compose run --rm backend-PROJECT_SLUG uv lock --refresh
 ```
 
-### Adaptation notes by ecosystem
+### Concrete example (`bun`)
 
-- Python (`uv`, `poetry`, `pip-tools`): treat lock refresh as a first-class target.
-- Node (`npm`, `pnpm`, `yarn`, `bun`): keep add/remove/update and lock regeneration explicit.
-- Mixed monorepos: split targets by service and package manager rather than mixing commands in one target.
+```makefile
+.PHONY: bun-add bun-update bun-remove
+
+# Usage:
+#   make bun-add PKG=package
+#   make bun-update PKG=package
+#   make bun-remove PKG=package
+bun-add:
+	docker compose exec -T frontend-PROJECT_SLUG bun add $(PKG)
+
+bun-update:
+	docker compose exec -T frontend-PROJECT_SLUG bun update $(PKG)
+
+bun-remove:
+	docker compose exec -T frontend-PROJECT_SLUG bun remove $(PKG)
+```
 
 ## Target Design Checklist
 
@@ -270,6 +291,7 @@ When creating/updating `Makefile` targets:
 - [ ] Does teardown include orphan cleanup when relevant?
 - [ ] Are logs and shell access available for involved services?
 - [ ] Is the command safe for repeated local runs?
+- [ ] Are `lint`, `test`, and `build` aggregate targets present for CI?
 - [ ] Is dangerous behavior isolated in clearly marked "danger zone" targets?
 - [ ] Are user-facing echoes concise and useful?
 
@@ -279,7 +301,12 @@ When asked to review a `Makefile`:
 
 1. Verify startup/teardown ordering and orphan handling.
 2. Verify `run` vs `exec` usage per target.
-3. Verify package manager boundaries (`uv` backend, `npm` frontend).
-4. Verify logs/shell targets cover all core services.
-5. Flag duplicate or conflicting targets and suggest consolidation.
-6. Flag dangerous cleanup/database reset tasks and ensure warnings are explicit.
+3. Verify package manager boundaries (`uv` backend, `bun` frontend).
+4. Verify CI-facing targets (`lint`, `test`, `build`) exist and are used by GitHub Actions.
+5. Verify logs/shell targets cover all core services.
+6. Flag duplicate or conflicting targets and suggest consolidation.
+7. Flag dangerous cleanup/database reset tasks and ensure warnings are explicit.
+
+## Additional resources
+
+- Full Makefile starter templates: [reference.md](reference.md)

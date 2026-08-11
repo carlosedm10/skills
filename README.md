@@ -113,17 +113,25 @@ Create a new skill skeleton:
 
 ## Maintainer: releasing to npm
 
-### Version tags → CI publish
+### Version tags → GitHub Release + npm publish
+
+Releases only run when you push a **`v*`** tag that points to a commit on **`main`**. Merging a PR alone does not publish.
 
 1. Bump **`version`** in [`package.json`](package.json) (or run `npm version patch`).
 2. Commit and push to `main`.
-3. Push a **`v*`** tag (example: `v1.0.2`):
+3. Create and push a tag whose name matches the version (example: `v1.0.7` for `"version": "1.0.7"`):
 
 ```bash
-git push origin main && git push origin v1.0.2
+git tag v1.0.7
+git push origin main && git push origin v1.0.7
 ```
 
-That triggers [`.github/workflows/publish-npm.yml`](.github/workflows/publish-npm.yml).
+That triggers [`.github/workflows/publish-npm.yml`](.github/workflows/publish-npm.yml), which:
+
+1. Verifies the tagged commit is on `main`
+2. Verifies the tag matches `package.json` version
+3. Creates a **GitHub Release** with auto-generated notes
+4. Publishes the package to **npm**
 
 ### Trusted publishing (OIDC)
 

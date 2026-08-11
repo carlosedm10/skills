@@ -8,11 +8,40 @@ on:
 # Trusted publishing (OIDC): https://docs.npmjs.com/trusted-publishers
 permissions:
   id-token: write
-  contents: read
+  contents: write
 
 jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure tag is on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+      - name: Verify package version matches tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match package.json ($PKG_VERSION)"
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+
   publish:
     runs-on: ubuntu-latest
+    needs: release
     # If you set an "Environment name" on npm Trusted Publisher, uncomment and match exactly:
     # environment: npm-publish
 

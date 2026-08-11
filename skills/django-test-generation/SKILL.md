@@ -1,6 +1,6 @@
 ---
 name: django-test-generation
-description: Generates Django REST Framework unit tests in the project’s conventions (APITestCase + APIClient, factories, explicit status/JSON/DB assertions, endpoint-focused docstrings, sectioned banners). Use when the user explicitly asks to create tests in this repo’s format or mentions this skill by name.
+description: Generates Django REST Framework unit tests with APITestCase, APIClient, factories, and per-app tests/ directories. Use only for DRF backends — not FastAPI. Invoke when creating DRF endpoint tests or when the user mentions this skill by name.
 ---
 
 # Django Test Generation
@@ -130,8 +130,17 @@ When you want tests in this style, explicitly say something like:
 - “Use the `django-test-generation` skill to create unit tests for this code.”
 - “Generate `APITestCase` tests following `backend/api/users/tests/` conventions.”
 
+## Test file location
+
+Tests live inside each Django app, not at the project root:
+
+```
+backend/api/<app>/tests/test_<area>.py
+```
+
 ## Scope limits
 
-- This skill is for **Django + DRF** tests built with `APITestCase`/`APIClient`.
+- This skill is for **Django + DRF** tests built with `APITestCase`/`APIClient` only.
+- For **FastAPI** backends, use **fastapi-test-generation** instead.
 - If the URL path/method is not visible in the code you provide, infer based on existing patterns and state assumptions **in the chat response** (not in test code).
 
