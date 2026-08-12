@@ -3,6 +3,40 @@
 
 set -euo pipefail
 
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+# Colour only when stdout is a terminal, so piped and CI output stays clean.
+if [[ -t 1 ]]; then
+  C_RED=$'\033[0;31m'
+  C_GREEN=$'\033[0;32m'
+  C_YELLOW=$'\033[0;33m'
+  C_BLUE=$'\033[0;34m'
+  C_DIM=$'\033[2m'
+  C_OFF=$'\033[0m'
+else
+  C_RED=""; C_GREEN=""; C_YELLOW=""; C_BLUE=""; C_DIM=""; C_OFF=""
+fi
+
+info()    { printf '%s::%s %s\n' "$C_BLUE" "$C_OFF" "$*"; }
+success() { printf '%s::%s %s\n' "$C_GREEN" "$C_OFF" "$*"; }
+warn()    { printf '%s::%s %s\n' "$C_YELLOW" "$C_OFF" "$*" >&2; }
+error()   { printf '%s::%s %s\n' "$C_RED" "$C_OFF" "$*" >&2; }
+debug()   { printf '%s..%s %s\n' "$C_DIM" "$C_OFF" "$*"; }
+
+# Yes/no prompt — gum when available, plain read otherwise.
+gum_confirm() {
+  local msg="$1"
+  if command -v gum >/dev/null 2>&1; then
+    gum confirm "$msg"
+  else
+    printf '%s [y/N] ' "$msg" >&2
+    local ans
+    read -r ans || true
+    [[ "${ans:-}" =~ ^[Yy]$ ]]
+  fi
+}
+
 install_bundle() {
   local src="$1"
   local dest="$2"

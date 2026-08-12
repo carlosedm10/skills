@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * CLI entry for npm/bun: forwards to install.sh (same UX as cloning the repo).
+ * CLI entry for npm/bun: forwards to ./install (same UX as cloning the repo).
  *
  * Usage:
- *   npx agent-skills-template [install] [install.sh args...]
+ *   npx agent-skills-template [install] [install args...]
  *   npm i -g agent-skills-template && agent-skills-template install --help
  */
 
@@ -12,7 +12,7 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
-const installSh = path.join(root, "install.sh");
+const installer = path.join(root, "install");
 
 function main() {
   const argv = process.argv.slice(2);
@@ -22,12 +22,12 @@ function main() {
     forwarded = argv.slice(1);
   }
 
-  if (!fs.existsSync(installSh)) {
-    console.error(`Missing installer at ${installSh}`);
+  if (!fs.existsSync(installer)) {
+    console.error(`Missing installer at ${installer}`);
     process.exit(1);
   }
 
-  const result = spawnSync("bash", [installSh, ...forwarded], {
+  const result = spawnSync("bash", [installer, ...forwarded], {
     stdio: "inherit",
     cwd: root,
     env: process.env,

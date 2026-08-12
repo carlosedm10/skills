@@ -22,9 +22,10 @@ npx agent-skills-template@latest install --help
 | Path | Purpose |
 |------|---------|
 | [`skills/`](skills/) | Your skills (`<name>/SKILL.md` plus optional files) |
-| [`skill-template/`](skill-template/) | Starter files for `./install.sh new <name>` |
-| [`install.sh`](install.sh) | Interactive installer (uses [gum](https://github.com/charmbracelet/gum) when available) |
-| [`install/platforms/`](install/platforms/) | Per-target install scripts |
+| [`skill-template/`](skill-template/) | Starter files for `./install new <name>` |
+| [`install`](install) | Interactive installer (uses [gum](https://github.com/charmbracelet/gum) when available) |
+| [`lib/`](lib/README.md) | Installer machinery — shared helpers and per-platform scripts |
+| [`bin/cli.js`](bin/cli.js) | npm/npx entry point; forwards to `./install` |
 
 ## Quick install
 
@@ -53,13 +54,13 @@ agent-skills-template install --help
 ```bash
 git clone https://github.com/carlosedm10/skills.git
 cd skills
-./install.sh
+./install
 ```
 
 ### curl (remote — runs latest `main` installer script)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/carlosedm10/skills/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/carlosedm10/skills/main/install | bash
 ```
 
 > **npm vs curl:** `npx` installs the **same version** as the published package (skills + installer bundled in the tarball). `curl` always runs whatever is on **`main`** in GitHub.
@@ -74,7 +75,7 @@ npx .
 ### Non-interactive flags
 
 ```bash
-./install.sh --yes \
+./install --yes \
   --platforms cursor,claude-code,opencode,pi,codex \
   --skills all \
   --mode copy
@@ -108,7 +109,7 @@ Codex follows official **`skills.config`** paths (folders containing `SKILL.md`)
 Create a new skill skeleton:
 
 ```bash
-./install.sh new my-skill-name
+./install new my-skill-name
 ```
 
 ## Maintainer: releasing to npm
@@ -149,7 +150,7 @@ Replace `carlosedm10/skills` and the npm **`name`** in [`README.md`](README.md) 
 
 ## Customization
 
-- **Fork-only workflow**: keep skills under [`skills/`](skills/) and run `./install.sh` after edits; use **`symlink`** mode so global installs always track your clone.
+- **Fork-only workflow**: keep skills under [`skills/`](skills/) and run `./install` after edits; use **`symlink`** mode so global installs always track your clone.
 - **Per-project installs**: run the same installer from the repo checkout with **`copy`** mode, then copy specific bundles into a project’s `.cursor/skills/`, `.claude/skills/`, `.opencode/skills/`, etc., if you want repo-local versions instead of global ones.
 - **Codex**: entries are appended to `~/.codex/config.toml` under `# agent-skills-template: <skill>` markers—delete those blocks to unregister without removing files from `~/.codex/skills/`.
 - **Pi**: if your Pi settings use [`skills.customDirectories`](https://github.com/earendil-works/pi), add paths there when you prefer not to use the default Pi skill dirs.

@@ -2,10 +2,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=install/utils.sh
-source "${ROOT}/install/utils.sh"
+# shellcheck source=lib/utils.sh
+source "${ROOT}/lib/utils.sh"
 # shellcheck disable=SC1090
-for f in "${ROOT}/install/platforms"/*.sh; do
+for f in "${ROOT}/lib/platforms"/*.sh; do
   # shellcheck source=/dev/null
   source "$f"
 done

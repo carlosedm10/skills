@@ -29,8 +29,8 @@
   },
   "files": [
     "bin/",
-    "install/",
-    "install.sh",
+    "lib/",
+    "install",
     "skills/",
     "skill-template/",
     "README.md",
