@@ -11,6 +11,8 @@ Use this skill when working on repositories that orchestrate development tasks f
 
 ## Core Rules
 
+0. The hierarchy is FRACTAL — see the **Fractal Makefile Hierarchy** section. Every
+   deployable owns a Makefile with bare verbs; parents are pure orchestration.
 1. Prefer existing `Makefile` targets over ad-hoc shell commands.
 2. Name lifecycle targets after the Docker Compose command they wrap — `up`, `down`, `build`,
    `restart` — never invented synonyms like `start`/`stop`. A target that wraps one compose
@@ -27,6 +29,50 @@ Use this skill when working on repositories that orchestrate development tasks f
 5. If a command can be destructive, call it out clearly before proposing/running it.
 6. **CI parity**: GitHub Actions must call `make <target>` — never duplicate lint/test/build commands in workflow YAML. If CI needs a step, add a Makefile target first.
 
+## Fractal Makefile Hierarchy
+
+The repo's Makefiles form a tree that mirrors the directory tree, and the same three rules
+repeat at every level:
+
+```
+Makefile                    ← root: PURE orchestration, no recipes of its own
+├── frontend/Makefile       ← bare verbs: build, up, down, logs, lint, test, shell
+└── backend/Makefile        ← orchestrates its children: bare = all, <verb>-cell = one
+    ├── cell/Makefile       ← bare verbs + identity vars, includes the shared engine
+    ├── common/Makefile     ← same
+    └── makefiles/*.mk      ← shared engine for sibling stacks (recipes written ONCE)
+```
+
+1. **Bare verbs at your own level.** Inside `frontend/`, the frontend build is `make build` —
+   never `build-frontend`. The scope suffix exists only one level up, where it addresses a
+   child: `build-frontend: $(MAKE) -C frontend build`. A parent Makefile contains forwards
+   and cross-child ordering (e.g. backends migrated before the frontend's codegen), never a
+   child's recipes.
+2. **Siblings share an engine, not copies.** When two children are the same shape (two Rails
+   stacks), their recipes live once in an included `*.mk`; each child's Makefile is just
+   identity variables + `include`. Orchestrator Makefiles answer "which children"; the engine
+   answers "how a child works inside".
+3. **Each level announces its own phases** with `@echo ":: <verb>: <path>"` as the first
+   recipe line (`:: up: backend/cell`). The parent never narrates a child's work — narration
+   travels with the recipe, so every caller (a human, the root Makefile, an orchestrator like
+   fdev) sees the same progress markers for free.
+
+**Why per-deployable Makefiles instead of one root file:** the deployable's Makefile travels
+with the deployable's code, so the same shortcuts work in every context where that code
+exists —
+
+- **dev machine**: `cd frontend && make build`;
+- **CI**: `working-directory: backend/cell` + `run: make test` — the workflow step IS the
+  local command (pair with a transport switch: same recipe runs via docker compose locally
+  and natively when `CI=true`);
+- **inside a running container/pod**: shelling into a deployed backend gives you
+  `make console`, `make logs-rails` — the ops shortcuts ship with the image.
+
+The pod case adds one constraint: **everything a deployable's Makefile `include`s must live
+inside that deployable's Docker build context** (or the include must be guarded with a
+`wildcard` check). An engine `.mk` that sits above the build context never makes it into the
+image, and `make` inside the pod dies on the missing include.
+
 ## Command Ordering Standard
 
 Follow this order unless the user asks otherwise:
@@ -39,7 +85,7 @@ Follow this order unless the user asks otherwise:
    - Formatting/lint
    - Package changes (`uv-*`, `bun-*`)
 3. **Inspect**
-   - `make show-backend-logs`, `make show-frontend-logs`, `make show-postgres-logs`
+   - `make logs-backend`, `make logs-frontend`, `make logs-db` (`make logs` for everything)
    - `make backend-shell` / `make postgres-shell` for deeper checks
 4. **Teardown**
    - `make down` (must map to `docker compose down --remove-orphans`)
@@ -87,7 +133,9 @@ GitHub Actions workflows call only these targets. See **github-actions** skill.
 ## Terminal and Logs Conventions
 
 - Provide dedicated `*-shell` targets per critical service.
-- Provide dedicated `show-*-logs` targets per service with `-f`.
+- Logs follow the same verb ladder as the lifecycle targets: `logs-<scope>` per service, bare
+  `logs` for everything — never a `show-` prefix. App logs never include the databases; give
+  those their own `logs-db`.
 - Avoid defaulting to global `docker compose logs -f` unless explicitly requested.
 - When debugging:
   1. reproduce with the specific target

@@ -200,6 +200,66 @@ Findings from a code audit (<date>), grouped by priority. Each verified by readi
 
 ---
 
+## Template — `docs/demo/<name>.tape` (VHS terminal recording)
+
+Only after the recording passed the NEEDED test in `SKILL.md` (read the `Makefile` / setup path / CLI verbs first, keep only what static text can't carry, three per README maximum).
+
+Layout: the tape is checked in **beside** its GIF, so anyone can re-render it.
+
+```
+docs/demo/<name>.tape     ← source of truth, reviewable in a diff
+docs/demo/<name>.gif      ← build artifact, re-rendered, never edited
+```
+
+```tape
+# <name> — one line: what this recording proves, and any non-obvious step below.
+Output docs/demo/<name>.gif
+
+Set Shell "zsh"
+Set FontSize 15
+Set Width 1200
+Set Height 650
+Set Padding 20
+Set TypingSpeed 40ms
+Set Framerate 24
+
+# Setup the viewer must not see: aliases, cd, env. Hide it, then clear.
+Hide
+Type "alias <cmd>=$HOME/code/<repo>/<bin>"
+Enter
+Type "clear"
+Enter
+Show
+
+Type "<cmd> <verb>"
+Enter
+Sleep 5s
+```
+
+Render, then look at it before committing:
+
+```bash
+vhs docs/demo/<name>.tape
+```
+
+**Settings that matter**
+
+| Setting | Use it for |
+|---|---|
+| `Set PlaybackSpeed 2`…`6` | A real run that takes minutes. Record the truth, play it fast — never fake a fast run by cutting the wait. |
+| `Set Framerate 12` | Long recordings. Halves the file with no readability loss on terminal output. |
+| `Set Height` | Fit the command's actual output. A tall empty terminal is wasted pixels in the README. |
+| `Hide` / `Show` | Every bit of setup. The viewer sees one clean prompt and the command. |
+| `Sleep <n>` after the last `Enter` | Must exceed the command's real duration, or the GIF cuts mid-run. Overshoot; trailing idle frames compress to nothing. |
+| `Down@200ms` / `Space` / `Enter` | Driving an interactive picker. Add a `#` comment for each sub-prompt so the tape stays readable. |
+| `Ctrl+B` then `Type "d"` | Detaching from a tmux layout, so the recording ends where the user's session would. |
+
+**Size budget** — aim under ~1 MB per GIF; anything past a few MB makes the README slow to open on a phone. Over budget, in order: raise `PlaybackSpeed`, drop `Framerate` to 12, shrink `Height`, then cut scope (record one verb, not three).
+
+**Before committing, watch it back** and check: no tokens, passwords, internal hostnames, or customer data on screen; text legible at README width; it starts at a clean prompt and ends at one.
+
+---
+
 ## Checklist — verification (Phase 4)
 
 - [ ] Every relative link resolves (verified, not assumed); anchors exist in their targets.
@@ -212,6 +272,7 @@ Findings from a code audit (<date>), grouped by priority. Each verified by readi
 - [ ] Each file still has exactly one update gesture (no rules+history+status mixing).
 - [ ] **Diff is minimal** — every changed line is a fact fix, an addition, or a justified deletion. No incidental rewording, reflowing, or reordering.
 - [ ] Every `KEEP` file is genuinely untouched (`git diff --stat` shows it absent).
+- [ ] ≤3 recordings in the README; each has its `.tape` checked in, plays back clean, and shows no secrets.
 
 ---
 
@@ -222,7 +283,8 @@ Findings from a code audit (<date>), grouped by priority. Each verified by readi
 ├── AGENTS.md                       # orientation + routing (one screen)
 │   └── CLAUDE.md → AGENTS.md       # relay for tools that only read their own name
 ├── docs/
-│   └── README.md                   # the documentation convention (root routes, never hosts)
+│   ├── README.md                   # the documentation convention (root routes, never hosts)
+│   └── demo/                       # ≤3 VHS recordings for the README: <name>.tape + <name>.gif
 ├── <deployable-a>/
 │   ├── AGENTS.md (+ relay)         # this deployable's rules
 │   └── docs/ARCHITECTURE.md        # its one doc

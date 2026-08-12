@@ -10,6 +10,8 @@ description: >-
   repo/component/service", "our docs are stale / too long / nobody reads them", "update the docs
   for this change", "write an AGENTS.md", "set up a documentation convention", "audit the docs",
   "onboarding docs for a new joiner", "docs an AI agent can use", or "simplify the documentation".
+  Also covers README terminal recordings (VHS `.tape` → GIF): when a demo is worth recording at
+  all, which command to record, and the three-per-README cap.
 ---
 
 # document-code
@@ -130,8 +132,47 @@ Fix what it finds, then re-verify. Stop when a pass produces nothing new.
 | Code-adjacent `README.md` | "How does this one gnarly folder work?" | Lives *inside* the folder it describes (a provider adapter, a codegen pipeline), next to its artifacts. Mechanics + hard-won quirks. |
 | `plans/*.md` | "What are we about to build?" | A workspace, with a status line. Distilled into the domain doc and **deleted** when shipped. |
 | Tracking artifacts | "What is the current status of N things?" | Ticked mechanically (`endpoints.csv`, `COVERAGE.md`). Live next to what they track; label them as artifacts. |
+| `docs/demo/*.tape` + rendered GIF | "What does this actually look like when I run it?" | The tape is the source; the GIF is re-rendered, never edited. **Three in the README, maximum.** See below. |
 
 **Why exactly these — the churn principle.** Docs rot for two reasons: distance from the code they describe, and mixing content that changes in different ways. Each file above has exactly **one update gesture** — rules are added/removed, explanations are edited, plans are deleted, artifacts are ticked. A file mixing gestures (rules + history + status) is always partially stale, so people stop trusting it, so they stop updating it. Fewer files is not the goal; **one gesture per file** is.
+
+## Terminal recordings in the README (VHS)
+
+A recording is the one thing in the kit that shows *behaviour over time* — a picker, a dependency-ordered run, a confirmation gate, a TUI taking shape. It is also the fastest-rotting file you can add: nobody edits a GIF, so a stale one is re-recorded or it lies. Record with [VHS](https://github.com/charmbracelet/vhs) (`brew install vhs`), keep the `.tape` next to the `.gif`, and earn every one.
+
+**Three in the repo README, maximum. Domain docs get none** — if a flow needs a picture there, it needs a diagram, not a movie.
+
+### Step R0 — prove the recording is NEEDED (before writing a tape)
+
+Do not start from "what would look cool". Start from what people actually run, read out of the repo itself:
+
+1. **Read the `Makefile`** (or `Justfile`/`package.json` scripts) — the target list *is* the intended interface, and the target everyone runs first is your strongest candidate.
+2. **Read the setup path** — the bootstrap/install script and the README's Quick start. Whatever a new joiner types in week one is what a recording is for.
+3. **Read the CLI's verb list** if the repo ships one, plus any interactive flag (`--pick`, wizards, `-i`).
+
+Then keep a candidate only if **all three** hold:
+
+- **Static text can't carry it.** The value is in the motion: an interactive selection, a progress/parallel run, a spinner resolving, a prompt being answered, panes tiling. If the output is a fixed block of text, paste it as a fenced code block — copyable, greppable, diffable, and ~200× smaller.
+- **It's the repo's reason to exist**, not a peripheral flag or a one-off.
+- **It replaces prose you'd otherwise have to write**, and the reader understands the command better after watching than after reading.
+
+Reject on sight: `brew install`-style setup steps, anything showing credentials, tokens, customer data, or internal hostnames, and "look how pretty" recordings with no informational payload.
+
+### Step R1 — pick the surviving three
+
+If more than three pass, do not record more — choose along **different axes**, so the three together teach the tool rather than repeat it:
+
+1. **The one-glance command** — the thing you run to see where you stand (the README hero, right under the title).
+2. **The scariest operation** — the destructive or long-running one, shown with its guard rail and its real duration (sped up).
+3. **The one nobody knows exists** — the interactive/selective mode that changes how people work.
+
+Each GIF sits directly under the heading whose claim it proves, with alt text equal to the command (`![fdev status](docs/demo/fdev-status.gif)`). A recording that isn't backed by a sentence of prose is decoration — cut it or write the sentence.
+
+### Triage and upkeep
+
+Treat **tape + GIF as one unit** and give the *tape* the verdict. `UPDATE` a recording only when the command's output shape actually changed — then edit the tape and re-render (`vhs docs/demo/<name>.tape`); never hand-patch a GIF. A recording of a command that no longer exists is a broken link: delete both files and the README line.
+
+Tape template, settings, and the size budget are in `reference.md`.
 
 **Entry-point naming.** `AGENTS.md` is the emerging cross-tool standard. Some tools only auto-load their own filename (e.g. Claude Code reads `CLAUDE.md`), so put the content in `AGENTS.md` and leave a one-line relay file (`@./AGENTS.md`) for those tools. Apply the same pattern at every scope — no exceptions, or the asymmetry becomes the thing people ask about.
 
