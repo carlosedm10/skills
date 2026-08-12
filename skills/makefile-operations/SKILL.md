@@ -12,12 +12,15 @@ Use this skill when working on repositories that orchestrate development tasks f
 ## Core Rules
 
 1. Prefer existing `Makefile` targets over ad-hoc shell commands.
-2. Keep lifecycle ordering consistent:
-   - Start/build before exec
+2. Name lifecycle targets after the Docker Compose command they wrap — `up`, `down`, `build`,
+   `restart` — never invented synonyms like `start`/`stop`. A target that wraps one compose
+   command should be guessable from the compose command.
+3. Keep lifecycle ordering consistent:
+   - Up/build before exec
    - Exec for running containers
    - Run `--rm` for one-off jobs
-   - Stop/down with `--remove-orphans` when tearing down
-3. Keep backend and frontend package managers isolated:
+   - `down` with `--remove-orphans` when tearing down
+4. Keep backend and frontend package managers isolated:
    - Backend: `uv` in backend container
    - Frontend: `bun` in frontend container
 4. Use service-specific logs and shells instead of broad noisy commands.
@@ -30,7 +33,7 @@ Follow this order unless the user asks otherwise:
 
 1. **Bring stack up**
    - `make build` for rebuilds
-   - `make start` for normal startup
+   - `make up` for normal startup
 2. **Run app tasks**
    - Django ops (`migrate`, `makemigrations`) or FastAPI/alembic ops (`alembic-upgrade`, `alembic-revision`)
    - Formatting/lint
@@ -39,7 +42,7 @@ Follow this order unless the user asks otherwise:
    - `make show-backend-logs`, `make show-frontend-logs`, `make show-postgres-logs`
    - `make backend-shell` / `make postgres-shell` for deeper checks
 4. **Teardown**
-   - `make stop` (must map to `docker compose down --remove-orphans`)
+   - `make down` (must map to `docker compose down --remove-orphans`)
 
 If a workflow needs one-off commands, keep them deterministic and container-scoped.
 
@@ -65,7 +68,7 @@ GitHub Actions workflows call only these targets. See **github-actions** skill.
 
 - Use detached mode for standard development startup.
 - Use force recreate on full stack restart when consistency matters.
-- Prefer one canonical startup target (`build` or `start`) instead of multiple overlapping variants.
+- Prefer one canonical startup target (`build` or `up`) instead of multiple overlapping variants.
 
 ### Teardown
 
