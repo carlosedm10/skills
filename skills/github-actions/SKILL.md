@@ -20,8 +20,8 @@ Before creating workflows, verify the project Makefile exposes:
 | `make build` | Build Docker images |
 | `make lint` | Lint backend + frontend |
 | `make test` | Test backend + frontend |
-| `make start` | Start stack (CI integration tests) |
-| `make stop` | Tear down stack |
+| `make up` | Start stack (CI integration tests) |
+| `make down` | Tear down stack |
 
 If any target is missing, create it via **makefile-operations** before writing workflows.
 
@@ -39,10 +39,10 @@ flowchart LR
   push[Push / PR] --> checkout[Checkout]
   checkout --> setup[Setup Docker]
   setup --> build["make build"]
-  build --> start["make start"]
-  start --> lint["make lint"]
+  build --> up["make up"]
+  up --> lint["make lint"]
   lint --> test["make test"]
-  test --> stop["make stop"]
+  test --> down["make down"]
 ```
 
 ## Workflow templates
@@ -54,10 +54,10 @@ See [reference.md](reference.md) for full YAML files.
 Triggers on `pull_request` and `push` to `main`. Runs:
 
 1. `make build`
-2. `make start`
+2. `make up`
 3. `make lint`
 4. `make test`
-5. `make stop` (always, via `if: always()`)
+5. `make down` (always, via `if: always()`)
 
 ### main.yml (optional — main branch)
 
@@ -70,7 +70,7 @@ Triggers on `push` to `main`. Runs:
 
 1. **No inline tool commands** — only `make <target>`.
 2. **Use `docker compose`** via Makefile, not directly in YAML (except Docker setup step).
-3. **Always tear down** with `make stop` in a final step with `if: always()`.
+3. **Always tear down** with `make down` in a final step with `if: always()`.
 4. **Set env vars** from GitHub secrets only when the Makefile target expects them — do not pass secrets to ad-hoc commands.
 5. **Pin action versions** (`actions/checkout@v4`, `docker/setup-buildx-action@v3`).
 6. **Use `-T` flag** is handled inside Makefile targets (`exec -T`), not in workflow YAML.
@@ -96,7 +96,7 @@ Never add the tool command directly to the workflow YAML.
 | Skill | Role |
 |-------|------|
 | makefile-operations | Defines the CI contract targets |
-| dockerization-template | Docker setup that `make build` / `make start` use |
+| dockerization-template | Docker setup that `make build` / `make up` use |
 | project-scaffold | Invokes this skill as final scaffold step |
 
 ## Additional resources

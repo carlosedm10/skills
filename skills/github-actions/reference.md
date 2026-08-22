@@ -30,8 +30,8 @@ jobs:
       - name: Build
         run: make build
 
-      - name: Start
-        run: make start
+      - name: Up
+        run: make up
 
       - name: Lint
         run: make lint
@@ -39,9 +39,9 @@ jobs:
       - name: Test
         run: make test
 
-      - name: Stop
+      - name: Down
         if: always()
-        run: make stop
+        run: make down
 ```
 
 ## .github/workflows/main.yml (optional — main branch builds)

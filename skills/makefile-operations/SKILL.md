@@ -1,33 +1,42 @@
 ---
 name: makefile-operations
-description: Manages Makefile-driven Docker Compose workflows with safe command ordering, container lifecycle hygiene, logs, terminal usage, and package manager tasks. Use when editing/running Makefile targets, troubleshooting compose commands, managing backend/frontend dependencies, standardizing local dev commands, or creating CI-facing make targets.
+description: Manages Makefile-driven Docker Compose workflows with the fractal per-deployable hierarchy, bare-verb naming and scope ladders, compose-named lifecycle, logs/terminal ladders, graceful aggregates vs strict atomics, CI/local parity via a transport switch, and package manager tasks. Use when editing/running Makefile targets, naming targets, troubleshooting compose commands, managing backend/frontend dependencies, standardizing local dev commands, wiring GitHub Actions to make, or reviewing Makefile PRs.
 ---
 
 # Makefile Operations
 
 ## Scope
 
-Use this skill when working on repositories that orchestrate development tasks from a central `Makefile`, especially with Docker Compose services like backend, frontend, and database.
+Use this skill when working on repositories that orchestrate development tasks from `Makefile`s,
+especially with Docker Compose services like backend, frontend, and database.
 
 ## Core Rules
 
-0. The hierarchy is FRACTAL — see the **Fractal Makefile Hierarchy** section. Every
-   deployable owns a Makefile with bare verbs; parents are pure orchestration.
+0. The hierarchy is FRACTAL — see **Fractal Makefile Hierarchy**. Every deployable owns a
+   Makefile with bare verbs; parents are pure orchestration.
 1. Prefer existing `Makefile` targets over ad-hoc shell commands.
 2. Name lifecycle targets after the Docker Compose command they wrap — `up`, `down`, `build`,
    `restart` — never invented synonyms like `start`/`stop`. A target that wraps one compose
    command should be guessable from the compose command.
-3. Keep lifecycle ordering consistent:
+3. **A bare verb is always the widest scope**, and every verb forms a ladder:
+   `test-backend → test`. The same verb means the same thing at every layer.
+4. Keep lifecycle ordering consistent:
    - Up/build before exec
    - Exec for running containers
    - Run `--rm` for one-off jobs
    - `down` with `--remove-orphans` when tearing down
-4. Keep backend and frontend package managers isolated:
+5. Keep backend and frontend package managers isolated:
    - Backend: `uv` in backend container
    - Frontend: `bun` in frontend container
-4. Use service-specific logs and shells instead of broad noisy commands.
-5. If a command can be destructive, call it out clearly before proposing/running it.
-6. **CI parity**: GitHub Actions must call `make <target>` — never duplicate lint/test/build commands in workflow YAML. If CI needs a step, add a Makefile target first.
+6. Use service-specific logs and shells instead of broad noisy commands.
+7. **Aggregates degrade, atomics don't** — see **Aggregates vs Atomics**.
+8. If a command can be destructive, call it out clearly before proposing/running it.
+9. **CI parity**: GitHub Actions must call `make <target>` — never duplicate lint/test/build
+   commands in workflow YAML. If CI needs a step, add a Makefile target first.
+10. **Target names are a public contract.** Everything outside the Makefile that drives the
+    ladder — CI workflows, dev-environment orchestrators, the README, teammates' muscle
+    memory — breaks on a rename. Treat renames as breaking changes and update every caller in
+    the same change.
 
 ## Fractal Makefile Hierarchy
 
@@ -37,41 +46,91 @@ repeat at every level:
 ```
 Makefile                    ← root: PURE orchestration, no recipes of its own
 ├── frontend/Makefile       ← bare verbs: build, up, down, logs, lint, test, shell
-└── backend/Makefile        ← orchestrates its children: bare = all, <verb>-cell = one
-    ├── cell/Makefile       ← bare verbs + identity vars, includes the shared engine
-    ├── common/Makefile     ← same
+└── backend/Makefile        ← orchestrates its children: bare = all, <verb>-api = one
+    ├── api/Makefile        ← bare verbs + identity vars, includes the shared engine
+    ├── worker/Makefile     ← same
     └── makefiles/*.mk      ← shared engine for sibling stacks (recipes written ONCE)
 ```
 
 1. **Bare verbs at your own level.** Inside `frontend/`, the frontend build is `make build` —
    never `build-frontend`. The scope suffix exists only one level up, where it addresses a
    child: `build-frontend: $(MAKE) -C frontend build`. A parent Makefile contains forwards
-   and cross-child ordering (e.g. backends migrated before the frontend's codegen), never a
+   and cross-child ordering (e.g. the backend migrated before the frontend's codegen), never a
    child's recipes.
-2. **Siblings share an engine, not copies.** When two children are the same shape (two Rails
-   stacks), their recipes live once in an included `*.mk`; each child's Makefile is just
-   identity variables + `include`. Orchestrator Makefiles answer "which children"; the engine
-   answers "how a child works inside".
+2. **Siblings share an engine, not copies.** When two children are the same shape (two Python
+   services, two Node apps), their recipes live once in an included `*.mk`; each child's
+   Makefile is just identity variables + `include`. Orchestrator Makefiles answer "which
+   children"; the engine answers "how a child works inside".
 3. **Each level announces its own phases** with `@echo ":: <verb>: <path>"` as the first
-   recipe line (`:: up: backend/cell`). The parent never narrates a child's work — narration
-   travels with the recipe, so every caller (a human, the root Makefile, an orchestrator like
-   fdev) sees the same progress markers for free.
+   recipe line (`:: up: backend/api`). The parent never narrates a child's work — narration
+   travels with the recipe, so every caller (a human, the root Makefile, CI, an external
+   orchestrator) sees the same progress markers for free.
 
 **Why per-deployable Makefiles instead of one root file:** the deployable's Makefile travels
 with the deployable's code, so the same shortcuts work in every context where that code
 exists —
 
 - **dev machine**: `cd frontend && make build`;
-- **CI**: `working-directory: backend/cell` + `run: make test` — the workflow step IS the
-  local command (pair with a transport switch: same recipe runs via docker compose locally
-  and natively when `CI=true`);
-- **inside a running container/pod**: shelling into a deployed backend gives you
-  `make console`, `make logs-rails` — the ops shortcuts ship with the image.
+- **CI**: `working-directory: backend/api` + `run: make test` — the workflow step IS the
+  local command (pair with the transport switch below: same recipe runs via docker compose
+  locally and natively when `CI=true`);
+- **inside a running container/pod**: shelling into a deployed service gives you
+  `make shell`, `make logs-app` — the ops shortcuts ship with the image.
 
 The pod case adds one constraint: **everything a deployable's Makefile `include`s must live
-inside that deployable's Docker build context** (or the include must be guarded with a
-`wildcard` check). An engine `.mk` that sits above the build context never makes it into the
-image, and `make` inside the pod dies on the missing include.
+inside that deployable's Docker build context**, or the include must be guarded. An engine
+`.mk` that sits above the build context never makes it into the image, and `make` inside the
+pod dies on the missing include:
+
+```makefile
+ifneq (,$(wildcard ../makefiles/service.mk))
+include ../makefiles/service.mk
+else
+shell:                         # in-pod fallback: the engine never ships with the image
+	sh
+endif
+```
+
+## Naming
+
+- **Lifecycle verbs are the Docker Compose commands they wrap**: `up`, `down`, `build`,
+  `restart` — never `start`/`stop`.
+- **Leading token = what you group by.** Subsystem-first where one subsystem owns the target
+  (`db-seed`, `db-load-schema`, `types-check`, `bun-add`, `uv-lock`), otherwise verb-first
+  (`test-backend`, `lint-frontend`, `build-icons`). One deliberate exception: **`migrate`
+  stays bare** — not `db-migrate` — because it's the verb every framework's docs already use,
+  and it carries its own ladder (`cd backend/api && make migrate` → `migrate` in `backend/`
+  → root).
+- **Bare verb = widest scope**, suffixes narrow it: `test-api → test-backend → test`.
+- **Logs follow the ladder, no `show-` prefix**: `logs`, `logs-backend`, `logs-frontend`,
+  `logs-db` at the root; `logs`, `logs-tail`, `logs-app`, `logs-db` inside a stack.
+  **App logs never include the databases** — those are `logs-db` only.
+- **Terminals**: at the root `<scope>-shell` (`backend-shell`, `frontend-shell`,
+  `postgres-shell`); inside a component just `shell` (plus `console` for a framework REPL).
+- **Variants are suffixes** (`lint-fix`, `test-watch`, `coverage-html`, `logs-tail`); a
+  single-item run is a **variable**, not a target (`make test TEST=path`,
+  `make bun-add PKG=name`).
+- **Database targets are named for the operation, not the occasion.** `migrate` is the base
+  (create + migrate + that service's idempotent local tasks) and its variants suffix it:
+  `migrate-seed`. Anything that loads a schema instead of replaying migrations says so —
+  `db-load-schema`, `db-load-schema-test` — because "setup" hides which of the two you get,
+  and the test-env one is what CI calls before the test suite. Never name a target after the
+  phase it serves (`db-setup`, `db-bootstrap`, `db-init`): the next reader can't tell whether
+  it migrates, loads, seeds, or all three.
+
+## Aggregates vs Atomics
+
+- **Combined targets degrade.** Aggregates (`lint`, `test`, `format`, and their `-backend` /
+  `-frontend` variants when they fan out) probe each stack with a silent readiness target and
+  skip what isn't running — but they fail when a check fails **and** when *nothing* could run
+  (a silent no-op that reports success is worse than an error).
+- **Atomic targets never skip.** `lint-frontend`, `test-backend` run the check or fail,
+  because CI calls exactly those and a skip there is a false green.
+
+```makefile
+backend-ready:                 # silent probe, no output on failure
+	@docker compose ps --status running --services | grep -qx backend-PROJECT_SLUG
+```
 
 ## Command Ordering Standard
 
@@ -81,7 +140,8 @@ Follow this order unless the user asks otherwise:
    - `make build` for rebuilds
    - `make up` for normal startup
 2. **Run app tasks**
-   - Django ops (`migrate`, `makemigrations`) or FastAPI/alembic ops (`alembic-upgrade`, `alembic-revision`)
+   - `make migrate` (Django) or `make alembic-upgrade` (FastAPI); `make migrate-seed` when
+     the local data matters
    - Formatting/lint
    - Package changes (`uv-*`, `bun-*`)
 3. **Inspect**
@@ -92,7 +152,23 @@ Follow this order unless the user asks otherwise:
 
 If a workflow needs one-off commands, keep them deterministic and container-scoped.
 
-## CI-facing targets (required for every project)
+## CI/local parity
+
+GitHub Actions call `make <target>`. The transport is a **mode, not a fork**: the engine's
+command wrappers run inside the service container locally and **natively when `CI=true`**
+(GitHub sets it) or `NATIVE=1`, so the recipe itself is written once.
+
+```makefile
+ifneq ($(filter true 1,$(CI) $(NATIVE)),)
+define run_backend
+cd $(SERVICE_ROOT) && $(1)
+endef
+else
+define run_backend
+docker compose run --rm backend-PROJECT_SLUG sh -c '$(1)'
+endef
+endif
+```
 
 Every scaffolded project must expose these aggregate targets for GitHub Actions:
 
@@ -105,8 +181,11 @@ Every scaffolded project must expose these aggregate targets for GitHub Actions:
 | `test-backend` | pytest or Django test runner in backend container |
 | `test-frontend` | frontend test command (if configured) |
 | `build` | `docker compose build` |
+| `db-load-schema-test` | loads the schema in the test env, before the suite |
 
-GitHub Actions workflows call only these targets. See **github-actions** skill.
+GitHub Actions workflows call only make targets. Keep a step raw in YAML only when it is
+genuinely CI-shaped (changed-files linting, runner bootstrap quirks, native steps on runners
+with no compose stack) — and say so in a comment. See the **github-actions** skill.
 
 ## Docker Compose Guidance
 
@@ -119,20 +198,24 @@ GitHub Actions workflows call only these targets. See **github-actions** skill.
 ### Teardown
 
 - Always include `--remove-orphans` on `down`.
-- For cleanup targets, differentiate clearly:
-  - **Soft clean**: safe-ish cache/image/volume cleanup
-  - **Hard clean**: includes builder prune / deeper cleanup
+- **`clean` is NUCLEAR**: `docker compose down --volumes --remove-orphans`, named DB volumes
+  included. Clean means clean — `make up` + `make migrate` rebuilds from zero. Don't soften
+  it, and don't hide a deeper prune behind an innocent name.
+- For extra cleanup targets, differentiate clearly in the name (e.g. `clean-builder` for a
+  builder prune) rather than layering surprises onto `clean`.
 - Keep cleanup idempotent with `|| true` only where failure is expected and harmless.
 
 ### Run vs Exec
 
 - Use `docker compose exec` for commands inside already-running containers.
-- Use `docker compose run --rm` for one-off commands where container lifecycle should end immediately.
+- Use `docker compose run --rm` for one-off commands where container lifecycle should end
+  immediately.
 - For CI/non-interactive contexts, use `exec -T` to avoid TTY issues.
 
 ## Terminal and Logs Conventions
 
-- Provide dedicated `*-shell` targets per critical service.
+- Provide dedicated `*-shell` targets per critical service at the root; inside a component the
+  target is just `shell` (and `console` for a framework REPL).
 - Logs follow the same verb ladder as the lifecycle targets: `logs-<scope>` per service, bare
   `logs` for everything — never a `show-` prefix. App logs never include the databases; give
   those their own `logs-db`.
@@ -145,7 +228,8 @@ GitHub Actions workflows call only these targets. See **github-actions** skill.
 
 ## Standard Section Banners
 
-Use standardized comment banners for top-level `Makefile` sections. Keep spacing, dashes, and capitalization consistent.
+Use standardized comment banners for `Makefile` sections. Keep spacing, dashes, and
+capitalization consistent.
 
 Use this exact format:
 
@@ -180,11 +264,13 @@ Suggested section set for this repository style:
 # ----------------------------- ⛔️ DANGER ZONE ⛔️ ----------------------------- #
 ```
 
-Include **Django** or **FastAPI / Alembic** section based on backend type — not both unless the project genuinely uses both.
+Include **Django** or **FastAPI / Alembic** section based on backend type — not both unless
+the project genuinely uses both. Destructive targets live in the danger zone at the bottom.
 
 ## Section `.PHONY` and Ordering Rules
 
-After each section banner, add a `.PHONY` line that lists all targets in that section, in the exact same order they are defined below.
+After each section banner, add a `.PHONY` line that lists all targets in that section, in the
+exact same order they are defined below.
 
 Rules:
 
@@ -228,6 +314,9 @@ lint:
 ```makefile
 migrate:
 	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py migrate
+
+migrate-seed: migrate
+	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py loaddata seeds
 
 makemigrations:
 	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py makemigrations
@@ -337,26 +426,39 @@ bun-remove:
 
 When creating/updating `Makefile` targets:
 
-- [ ] Is the target name explicit and consistent with existing naming?
-- [ ] Does it choose `run --rm` vs `exec` correctly?
-- [ ] Does teardown include orphan cleanup when relevant?
-- [ ] Are logs and shell access available for involved services?
-- [ ] Is the command safe for repeated local runs?
-- [ ] Are `lint`, `test`, and `build` aggregate targets present for CI?
-- [ ] Is dangerous behavior isolated in clearly marked "danger zone" targets?
-- [ ] Are user-facing echoes concise and useful?
+- [ ] Bare verbs inside a deployable; scope suffixes only in the orchestrator above it.
+- [ ] Lifecycle names = compose commands (`up`/`down`/`build`); `down --remove-orphans`.
+- [ ] Ladder complete and bare verb = widest scope; `.PHONY` in sync per section.
+- [ ] Correct `run --rm` vs `exec` (and `exec -T` for CI).
+- [ ] Logs exclude the databases; `logs-db` exists where a database does; no `show-` prefix.
+- [ ] `:: phase` announcements owned by each level, not the parent.
+- [ ] Shared recipes in an included engine, guarded if it sits outside the build context.
+- [ ] Aggregates degrade and fail when nothing ran; atomics never skip.
+- [ ] `lint`, `test`, `build` aggregates present; CI calls make targets, transport-aware.
+- [ ] DB targets named for the operation (`migrate`, `db-load-schema`), never the occasion.
+- [ ] Destructive targets in the danger zone; `clean` documented as nuclear.
+- [ ] Any renamed target: every external caller (CI, orchestrators, docs) updated in the
+      same change.
+- [ ] Command safe for repeated local runs; user-facing echoes concise.
 
 ## Recommended Review Flow
 
 When asked to review a `Makefile`:
 
-1. Verify startup/teardown ordering and orphan handling.
-2. Verify `run` vs `exec` usage per target.
-3. Verify package manager boundaries (`uv` backend, `bun` frontend).
-4. Verify CI-facing targets (`lint`, `test`, `build`) exist and are used by GitHub Actions.
-5. Verify logs/shell targets cover all core services.
-6. Flag duplicate or conflicting targets and suggest consolidation.
-7. Flag dangerous cleanup/database reset tasks and ensure warnings are explicit.
+1. Verify the fractal shape: does each deployable own its Makefile, are parents pure
+   orchestration, are sibling recipes shared in one engine?
+2. Verify naming: compose-named lifecycle, bare verbs, complete ladders, suffix variants,
+   operation-named DB targets.
+3. Verify startup/teardown ordering, orphan handling, and that `clean`'s blast radius matches
+   its name.
+4. Verify `run` vs `exec` usage per target.
+5. Verify package manager boundaries (`uv` backend, `bun` frontend).
+6. Verify CI-facing targets exist, are used by GitHub Actions, and work under the transport
+   switch (`CI=true`).
+7. Verify aggregate degradation vs atomic strictness.
+8. Verify logs/shell targets cover all core services and exclude DBs from app logs.
+9. Flag duplicate or conflicting targets and suggest consolidation.
+10. Flag renames that break external callers (CI, orchestrators, docs).
 
 ## Additional resources
 

@@ -147,7 +147,7 @@ cp .env_template .env
 
 ### Start development
 make build
-make start
+make up
 ```
 
 ### DRF + Next example
@@ -174,7 +174,7 @@ cp .env_template .env
 
 ### Start development
 make build
-make start
+make up
 ```
 
 ## Decision guide (for intake questions)

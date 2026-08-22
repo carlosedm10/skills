@@ -270,6 +270,7 @@ vhs docs/demo/<name>.tape
 - [ ] No undefined terms or used-before-defined jargon for a newcomer.
 - [ ] Entry points still one screen; domain doc still ~5 minutes.
 - [ ] Each file still has exactly one update gesture (no rules+history+status mixing).
+- [ ] A relay file (e.g. `CLAUDE.md` → `@./AGENTS.md`) exists at every scope that has an `AGENTS.md`.
 - [ ] **Diff is minimal** — every changed line is a fact fix, an addition, or a justified deletion. No incidental rewording, reflowing, or reordering.
 - [ ] Every `KEEP` file is genuinely untouched (`git diff --stat` shows it absent).
 - [ ] ≤3 recordings in the README; each has its `.tape` checked in, plays back clean, and shows no secrets.
