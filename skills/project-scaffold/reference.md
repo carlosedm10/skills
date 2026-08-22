@@ -35,57 +35,21 @@ Skip steps 4 (dockerization) partially:
 - Makefile targets run tools directly (no `docker compose exec`)
 - GitHub Actions runs `make lint` / `make test` without Docker setup steps
 
-## .gitignore (full)
+## .gitignore
 
-```
-# Environment
-.env
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-.venv/
-*.egg-info/
-.eggs/
-dist/
-build/
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-htmlcov/
-.coverage
-
-# Node
-node_modules/
-dist/
-.next/
-.turbo/
-out/
-
-# Docker
-postgres_data_*/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
-
-# Alembic
-alembic/versions/*.pyc
-```
+Use the canonical template from [env-secrets/reference.md](../env-secrets/reference.md). Do not duplicate it here.
 
 ## Post-scaffold verification checklist
 
 ```
+- [ ] .envrc committed (direnv loader, no secrets)
+- [ ] .env_template exists with all required keys
+- [ ] .env in .gitignore (user creates locally)
 - [ ] backend/ has pyproject.toml
 - [ ] frontend/ exists (if applicable)
 - [ ] docker/ has 3 Dockerfiles (if Docker enabled)
 - [ ] compose.yaml at repo root (if Docker enabled)
 - [ ] Makefile has lint, test, build targets
 - [ ] .github/workflows/ci.yml calls only make targets
-- [ ] .env_template exists, .env in .gitignore
 - [ ] Human-init checklist printed
 ```

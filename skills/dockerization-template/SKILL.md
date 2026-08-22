@@ -9,12 +9,14 @@ description: Scaffolds local dev Docker setup with compose.yaml at repo root and
 
 ```
 repo-root/
+├── .envrc                 # committed — direnv loader (see env-secrets)
+├── .env_template          # committed — documented keys
+├── .env                   # gitignored — local secrets
 ├── compose.yaml
 ├── docker/
 │   ├── backend.Dockerfile
 │   ├── frontend.Dockerfile
 │   └── postgresql.Dockerfile
-├── .env_template          # copy to .env; never commit .env
 ├── backend/               # app source (mounted in dev)
 ├── frontend/
 └── Makefile               # pair with makefile-operations skill
@@ -41,7 +43,7 @@ Keep service names stable — the Makefile and `docker compose` commands referen
 1. **Collect**: `PROJECT_SLUG`, backend type (`fastapi` | `drf`), frontend type (`react` | `next` | none), Python version, Bun version, Postgres major, host ports (default backend `8000`, frontend `3000`, postgres `5432`).
 2. **Create** `docker/backend.Dockerfile`, `docker/frontend.Dockerfile`, `docker/postgresql.Dockerfile` from [reference.md](reference.md); pick the backend/frontend variant.
 3. **Create** `compose.yaml` from reference; wire `DATABASE_URL` to the postgres service hostname (`postgres-{PROJECT_SLUG}`).
-4. **Add** `.env_template` with `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`; document `cp .env_template .env`.
+4. **Ensure** env files exist via **env-secrets** (`.envrc`, `.env_template`, `.gitignore`); Compose reads `env_file: [.env]`.
 5. **Add** minimal Makefile targets: `build`, `start`, `stop` (see makefile-operations skill).
 6. **Verify**: `docker compose config`, then `make build` or `docker compose up --build -d`.
 
@@ -108,11 +110,12 @@ Keep service names stable — the Makefile and `docker compose` commands referen
 - [ ] Postgres healthcheck + backend depends_on condition
 - [ ] Frontend: Bun image, frozen lockfile install, node_modules anonymous volume
 - [ ] Correct backend command (uvicorn vs runserver) and frontend port mapping
-- [ ] .env_template + .env in .gitignore
+- [ ] .envrc committed, .env_template committed, .env gitignored (see **env-secrets**)
 - [ ] make build / start / stop (or documented compose commands)
 ```
 
 ## Additional resources
 
 - Full file templates (FastAPI, DRF, React, Next): [reference.md](reference.md)
+- Env/secrets and `.gitignore`: **env-secrets** skill
 - Makefile targets, exec vs run, logs: **makefile-operations** skill
