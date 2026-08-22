@@ -13,6 +13,10 @@ description: Scaffolds FastAPI backends with uv, ruff, pyproject.toml, alembic, 
 
 Use **backend-drf** instead when the project needs Django admin, complex permissions, or heavy ORM-centric workflows.
 
+## Environment
+
+Settings read from env vars (`DATABASE_URL`, etc.). Locally, **env-secrets** loads them via `.envrc`/direnv from gitignored `.env`. In Docker, Compose passes the same `.env` via `env_file`.
+
 ## Stack
 
 | Tool | Purpose |

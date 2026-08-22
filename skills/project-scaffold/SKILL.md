@@ -25,6 +25,10 @@ Do not assume — ask the user:
 
 ```
 PROJECT_ROOT/
+├── .envrc                 # committed — direnv loader
+├── .env_template          # committed — documented keys
+├── .env                   # gitignored — local secrets (user creates)
+├── .gitignore             # from env-secrets reference
 ├── backend/
 ├── frontend/              # omitted if backend-only
 ├── docker/
@@ -36,10 +40,7 @@ PROJECT_ROOT/
 │       ├── ci.yml
 │       └── main.yml
 ├── Makefile
-├── .env
-├── .env_template
-├── compose.yaml
-└── .gitignore
+└── compose.yaml
 ```
 
 ## Scaffold sequence
@@ -48,7 +49,7 @@ Execute in this order, reading and applying each sibling skill:
 
 | Step | Skill | Action |
 |------|-------|--------|
-| 1 | (this skill) | Create root dirs, `.gitignore`, `.env_template`, stub `.env` |
+| 1 | `env-secrets` | `.envrc`, `.env_template`, `.gitignore` |
 | 2 | `backend-fastapi` or `backend-drf` | Backend stubs + pyproject.toml |
 | 3 | `frontend-react` or `frontend-next` | Frontend dir + human-init commands (skip if no frontend) |
 | 4 | `dockerization-template` | Dockerfiles + compose.yaml |
@@ -56,36 +57,11 @@ Execute in this order, reading and applying each sibling skill:
 | 6 | `github-actions` | Workflows calling only `make` targets |
 | 7 | (this skill) | Print human-init checklist |
 
-## Step 1 — Root files
+## Step 1 — Environment and gitignore
 
-### .gitignore
+Read and apply **env-secrets** with `PROJECT_SLUG` from intake. Creates `.envrc`, `.env_template`, and `.gitignore`. Do not create `.env` — the user copies from template after scaffold.
 
-```
-.env
-__pycache__/
-*.pyc
-.venv/
-node_modules/
-dist/
-.next/
-*.egg-info/
-.pytest_cache/
-.ruff_cache/
-postgres_data_*/
-```
-
-### .env_template
-
-```env
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=PROJECT_SLUG
-DATABASE_URL=postgresql://postgres:postgres@postgres-PROJECT_SLUG:5432/PROJECT_SLUG
-SECRET_KEY=change-me-in-production
-DEBUG=true
-```
-
-Tell user: `cp .env_template .env`
+See [env-secrets/reference.md](../env-secrets/reference.md) for file templates.
 
 ## Step 2 — Backend
 
@@ -142,8 +118,10 @@ bun install
 bunx --bun shadcn@latest init
 bun add lucide-react
 
-### Environment
+### Environment (direnv)
 cp .env_template .env
+# edit .env with your local values
+direnv allow .
 
 ### Start development
 make build
@@ -169,8 +147,10 @@ cd frontend
 bunx --bun shadcn@latest init
 bun add lucide-react
 
-### Environment
+### Environment (direnv)
 cp .env_template .env
+# edit .env with your local values
+direnv allow .
 
 ### Start development
 make build
@@ -202,7 +182,8 @@ Help the user choose frontend:
 
 ```mermaid
 flowchart TD
-  scaffold[project-scaffold] --> backendChoice{Backend?}
+  scaffold[project-scaffold] --> envSecrets[env-secrets]
+  scaffold --> backendChoice{Backend?}
   backendChoice -->|API| fastapi[backend-fastapi]
   backendChoice -->|Admin/DRF| drf[backend-drf]
   scaffold --> frontendChoice{Frontend?}
@@ -217,7 +198,7 @@ flowchart TD
 
 ## Rules
 
-1. **Never execute** human-only commands (`django-admin`, `bun create`, `shadcn init`).
+1. **Never execute** human-only commands (`django-admin`, `bun create`, `shadcn init`, `direnv allow`).
 2. **Always ask** intake questions before scaffolding — do not guess.
 3. **Always chain** sibling skills rather than inlining their content.
 4. **Always create** CI-facing Makefile targets before GitHub Actions workflows.
@@ -226,3 +207,4 @@ flowchart TD
 ## Additional resources
 
 - Intake question templates: [reference.md](reference.md)
+- Env/gitignore templates: [env-secrets/reference.md](../env-secrets/reference.md)
