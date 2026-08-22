@@ -107,9 +107,12 @@ endif
   **App logs never include the databases** — those are `logs-db` only.
 - **Terminals**: at the root `<scope>-shell` (`backend-shell`, `frontend-shell`,
   `postgres-shell`); inside a component just `shell` (plus `console` for a framework REPL).
-- **Variants are suffixes** (`lint-fix`, `test-watch`, `coverage-html`, `logs-tail`); a
+- **Variants are suffixes** (`test-watch`, `coverage-html`, `logs-tail`); a
   single-item run is a **variable**, not a target (`make test TEST=path`,
   `make bun-add PKG=name`).
+- **`lint` checks; `format` rewrites style; `lint-fix` applies auto-fixable lint.** Three
+  verbs, each with a ladder (`format-backend` → `format`, `lint-fix-backend` → `lint-fix`).
+  Do not fold `ruff check --fix` into `format`, and do not alias `format` to `lint-fix`.
 - **Database targets are named for the operation, not the occasion.** `migrate` is the base
   (create + migrate + that service's idempotent local tasks) and its variants suffix it:
   `migrate-seed`. Anything that loads a schema instead of replaying migrations says so —
@@ -140,9 +143,8 @@ Follow this order unless the user asks otherwise:
    - `make build` for rebuilds
    - `make up` for normal startup
 2. **Run app tasks**
-   - `make migrate` (Django) or `make alembic-upgrade` (FastAPI); `make migrate-seed` when
-     the local data matters
-   - Formatting/lint
+   - `make migrate` (bare verb; recipes live in **backend-drf** or **backend-fastapi**)
+   - `make format` (style) then `make lint-fix` (auto-fix) then `make lint` (check)
    - Package changes (`uv-*`, `bun-*`)
 3. **Inspect**
    - `make logs-backend`, `make logs-frontend`, `make logs-db` (`make logs` for everything)
@@ -178,7 +180,7 @@ Every scaffolded project must expose these aggregate targets for GitHub Actions:
 | `lint-backend` | `uv run ruff check` in backend container |
 | `lint-frontend` | `bun run lint` in frontend container |
 | `test` | Runs `test-backend` + `test-frontend` |
-| `test-backend` | pytest or Django test runner in backend container |
+| `test-backend` | stack test runner in backend container (see backend skill) |
 | `test-frontend` | frontend test command (if configured) |
 | `build` | `docker compose build` |
 | `db-load-schema-test` | loads the schema in the test env, before the suite |
@@ -187,6 +189,11 @@ GitHub Actions workflows call only make targets. Keep a step raw in YAML only wh
 genuinely CI-shaped (changed-files linting, runner bootstrap quirks, native steps on runners
 with no compose stack) — and say so in a comment. See the **github-actions** skill.
 
+Coverage is a suffix on the stack runner (`coverage`, `coverage-html`), not a second `tests`
+target. Do not add `tests` alongside `test` / `test-backend`. Filtered runs use `TEST=`,
+never a duplicate target. Recipes for the Django test runner and `coverage` live in
+**backend-drf**.
+
 ## Docker Compose Guidance
 
 ### Startup
@@ -194,6 +201,9 @@ with no compose stack) — and say so in a comment. See the **github-actions** s
 - Use detached mode for standard development startup.
 - Use force recreate on full stack restart when consistency matters.
 - Prefer one canonical startup target (`build` or `up`) instead of multiple overlapping variants.
+  Never add `start`/`stop` aliases.
+- After `up` and `build`, echo the local URLs from the backend skill (Django admin/docs vs
+  FastAPI OpenAPI), plus the frontend origin when a frontend exists.
 
 ### Teardown
 
@@ -201,8 +211,8 @@ with no compose stack) — and say so in a comment. See the **github-actions** s
 - **`clean` is NUCLEAR**: `docker compose down --volumes --remove-orphans`, named DB volumes
   included. Clean means clean — `make up` + `make migrate` rebuilds from zero. Don't soften
   it, and don't hide a deeper prune behind an innocent name.
-- For extra cleanup targets, differentiate clearly in the name (e.g. `clean-builder` for a
-  builder prune) rather than layering surprises onto `clean`.
+- **`clean-builder`** is the extra step: `docker builder prune -f`. Do not fold it into `clean`.
+- Never add host-wide `docker stop/rm/rmi $(docker ps …)` targets. Those are not project-scoped.
 - Keep cleanup idempotent with `|| true` only where failure is expected and harmless.
 
 ### Run vs Exec
@@ -264,8 +274,10 @@ Suggested section set for this repository style:
 # ----------------------------- ⛔️ DANGER ZONE ⛔️ ----------------------------- #
 ```
 
-Include **Django** or **FastAPI / Alembic** section based on backend type — not both unless
-the project genuinely uses both. Destructive targets live in the danger zone at the bottom.
+Include **Django** or **FastAPI / Alembic** based on backend type — not both unless the
+project genuinely uses both. Copy the recipes from **backend-drf** or **backend-fastapi**;
+this skill does not own `manage.py` / Alembic recipes. Destructive targets live in the
+danger zone at the bottom.
 
 ## Section `.PHONY` and Ordering Rules
 
@@ -283,7 +295,7 @@ Pattern:
 
 ```makefile
 # ----------------------------- Code Formatting ----------------------------- #
-.PHONY: lint-backend lint-frontend lint
+.PHONY: lint-backend lint-frontend lint format-backend format-frontend format lint-fix-backend lint-fix-frontend lint-fix
 ```
 
 ### Simple to Combined convention
@@ -296,6 +308,10 @@ Define targets from simple to complex:
 Example:
 
 ```makefile
+# Usage:
+#   make format-backend / make format-frontend / make format
+#   make lint-fix-backend / make lint-fix-frontend / make lint-fix
+#   make lint
 lint-backend:
 	docker compose exec -T backend-PROJECT_SLUG sh -c "uv run ruff check ."
 
@@ -305,38 +321,49 @@ lint-frontend:
 lint:
 	make lint-backend
 	make lint-frontend
+
+format-backend:
+	docker compose exec -T backend-PROJECT_SLUG sh -c "uv run ruff format ."
+
+format-frontend:
+	docker compose exec -T frontend-PROJECT_SLUG sh -c "bun run format"
+
+format:
+	make format-backend
+	make format-frontend
+
+lint-fix-backend:
+	docker compose exec -T backend-PROJECT_SLUG sh -c "uv run ruff check --fix ."
+
+lint-fix-frontend:
+	docker compose exec -T frontend-PROJECT_SLUG sh -c "bun run lint --fix"
+
+lint-fix:
+	make lint-fix-backend
+	make lint-fix-frontend
 ```
+
+Three aggregates, each with two atomics:
+
+| Aggregate | Backend | Frontend |
+|-----------|---------|----------|
+| `format` | `ruff format` | `bun run format` |
+| `lint-fix` | `ruff check --fix` | `bun run lint --fix` |
+| `lint` | `ruff check` | `bun run lint` |
+
+Append extra style tools (Prettier already in `format`, i18n key sort, …) to `format-frontend`.
+Scaffolds must ship a `format` script in `package.json`.
 
 ## Backend operations by stack
 
-### Django / DRF
+This skill is stack-agnostic. Splice one section into the Makefile from the backend skill:
 
-```makefile
-migrate:
-	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py migrate
+| Backend | Skill | Makefile section |
+|---------|-------|------------------|
+| Django / DRF | **backend-drf** | `# ----------------------------- Django ----------------------------- #` |
+| FastAPI | **backend-fastapi** | `# ----------------------------- FastAPI / Alembic ----------------------------- #` |
 
-migrate-seed: migrate
-	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py loaddata seeds
-
-makemigrations:
-	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py makemigrations
-
-test-backend:
-	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py test
-```
-
-### FastAPI / Alembic
-
-```makefile
-alembic-upgrade:
-	docker compose exec -T backend-PROJECT_SLUG uv run alembic upgrade head
-
-alembic-revision:
-	docker compose exec -T backend-PROJECT_SLUG uv run alembic revision --autogenerate -m "$(MSG)"
-
-test-backend:
-	docker compose exec -T backend-PROJECT_SLUG uv run pytest
-```
+Keep `migrate` as the bare verb at every layer. Do not duplicate those recipes here.
 
 ## Package Manager Conventions
 
@@ -406,12 +433,17 @@ uv-lock-regenerate:
 ### Concrete example (`bun`)
 
 ```makefile
-.PHONY: bun-add bun-update bun-remove
+.PHONY: bun-install bun-add bun-update bun-remove bun-lock-regenerate
 
 # Usage:
+#   make bun-install
 #   make bun-add PKG=package
 #   make bun-update PKG=package
 #   make bun-remove PKG=package
+#   make bun-lock-regenerate
+bun-install:
+	docker compose exec -T frontend-PROJECT_SLUG bun install
+
 bun-add:
 	docker compose exec -T frontend-PROJECT_SLUG bun add $(PKG)
 
@@ -420,7 +452,13 @@ bun-update:
 
 bun-remove:
 	docker compose exec -T frontend-PROJECT_SLUG bun remove $(PKG)
+
+bun-lock-regenerate:
+	docker compose exec -T frontend-PROJECT_SLUG bun install --lockfile-only
 ```
+
+Frontend is **bun**, not npm. If a legacy repo uses npm, mirror the same verbs (`npm-add`,
+`npm-install`, …) rather than mixing managers in one Makefile.
 
 ## Target Design Checklist
 
@@ -463,3 +501,5 @@ When asked to review a `Makefile`:
 ## Additional resources
 
 - Full Makefile starter templates: [reference.md](reference.md)
+- Django `manage.py` targets: **backend-drf**
+- Alembic targets: **backend-fastapi**

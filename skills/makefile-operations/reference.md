@@ -2,10 +2,9 @@
 
 Replace `PROJECT_SLUG` with the project slug.
 
-These templates obey the conventions in `SKILL.md`: compose-named lifecycle (`up`/`down`/`build`,
-never `start`/`stop`), a logs ladder with no `show-` prefix, DBs excluded from app logs, DB
-targets named for the operation, atomic-before-aggregate ordering, and a nuclear `clean` in the
-danger zone.
+These templates obey the conventions in `SKILL.md`. Stack-specific recipes (`manage.py`, Alembic)
+are copied from **backend-drf** / **backend-fastapi**; this file shows them inlined so a starter
+Makefile is copy-pasteable.
 
 ## Starter Makefile — FastAPI stack
 
@@ -15,11 +14,15 @@ danger zone.
 
 build:
 	@echo ":: build: ."
-	docker compose build
+	docker compose up --build -d --force-recreate
+	@echo "Backend: http://localhost:8000/"
+	@echo "Frontend: http://localhost:3000/"
 
 up:
 	@echo ":: up: ."
-	docker compose up -d
+	docker compose up -d --force-recreate
+	@echo "Backend: http://localhost:8000/"
+	@echo "Frontend: http://localhost:3000/"
 
 down:
 	@echo ":: down: ."
@@ -57,10 +60,16 @@ uv-lock-regenerate:
 	docker compose run --rm backend-PROJECT_SLUG uv lock --refresh
 
 # ----------------------------- Frontend Package Management ----------------------------- #
-.PHONY: bun-add bun-update bun-remove
+.PHONY: bun-install bun-add bun-update bun-remove bun-lock-regenerate
 
 # Usage:
+#   make bun-install
 #   make bun-add PKG=package
+#   make bun-update PKG=package
+#   make bun-remove PKG=package
+bun-install:
+	docker compose exec -T frontend-PROJECT_SLUG bun install
+
 bun-add:
 	docker compose exec -T frontend-PROJECT_SLUG bun add $(PKG)
 
@@ -69,6 +78,9 @@ bun-update:
 
 bun-remove:
 	docker compose exec -T frontend-PROJECT_SLUG bun remove $(PKG)
+
+bun-lock-regenerate:
+	docker compose exec -T frontend-PROJECT_SLUG bun install --lockfile-only
 
 # ----------------------------- Terminals ----------------------------- #
 .PHONY: backend-shell frontend-shell postgres-shell
@@ -112,8 +124,12 @@ db-load-schema-test:
 	docker compose exec -T -e ENV=test backend-PROJECT_SLUG uv run alembic upgrade head
 
 # ----------------------------- Code Formatting ----------------------------- #
-.PHONY: lint-backend lint-frontend lint
+.PHONY: lint-backend lint-frontend lint format-backend format-frontend format lint-fix-backend lint-fix-frontend lint-fix
 
+# Usage:
+#   make format-backend / make format-frontend / make format
+#   make lint-fix-backend / make lint-fix-frontend / make lint-fix
+#   make lint
 lint-backend:
 	docker compose exec -T backend-PROJECT_SLUG uv run ruff check .
 
@@ -123,6 +139,26 @@ lint-frontend:
 lint:
 	make lint-backend
 	make lint-frontend
+
+format-backend:
+	docker compose exec -T backend-PROJECT_SLUG uv run ruff format .
+
+format-frontend:
+	docker compose exec -T frontend-PROJECT_SLUG bun run format
+
+format:
+	make format-backend
+	make format-frontend
+
+lint-fix-backend:
+	docker compose exec -T backend-PROJECT_SLUG uv run ruff check --fix .
+
+lint-fix-frontend:
+	docker compose exec -T frontend-PROJECT_SLUG bun run lint --fix
+
+lint-fix:
+	make lint-fix-backend
+	make lint-fix-frontend
 
 # ----------------------------- Testing ----------------------------- #
 .PHONY: test-backend test-frontend test
@@ -138,40 +174,26 @@ test:
 	make test-frontend
 
 # ----------------------------- ⛔️ DANGER ZONE ⛔️ ----------------------------- #
-.PHONY: clean
+.PHONY: clean clean-builder
 
 # NUCLEAR: drops named volumes, database included. `make up` + `make migrate` rebuilds from zero.
 clean:
 	docker compose down --volumes --remove-orphans
+
+clean-builder: clean
+	docker builder prune -f
 ```
 
 ## Starter Makefile — DRF stack
 
-Same as FastAPI except replace the **FastAPI / Alembic** section with:
+Same as FastAPI except:
 
-```makefile
-# ----------------------------- Django ----------------------------- #
-.PHONY: migrate migrate-seed makemigrations db-load-schema-test
-
-migrate:
-	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py migrate
-
-migrate-seed: migrate
-	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py loaddata seeds
-
-makemigrations:
-	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py makemigrations
-
-db-load-schema-test:
-	docker compose exec -T -e DJANGO_SETTINGS_MODULE=config.settings.test backend-PROJECT_SLUG uv run python manage.py migrate
-```
-
-And change `test-backend`:
-
-```makefile
-test-backend:
-	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py test
-```
+1. Replace the **FastAPI / Alembic** section with the **Django** section from
+   `skills/backend-drf/reference.md` (startapp, createsuperuser, migrate, coverage, danger-zone
+   migration reset).
+2. After `up`/`build`, echo the Django local URLs from that same file instead of the generic
+   backend origin.
+3. Change `test-backend` to the Django runner in **backend-drf** (do not keep pytest).
 
 ## Backend-only variant
 

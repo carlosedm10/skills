@@ -123,12 +123,14 @@ export default defineConfig({
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "tsc --noEmit",
+    "format": "prettier --write .",
     "preview": "vite preview"
   }
 }
 ```
 
 Add ESLint when the project needs stricter linting; update the `lint` script accordingly.
+`format` is what `make format-frontend` runs. Add Prettier as a dev dependency (`bun add -d prettier`) when scaffolding.
 
 ## Agent may write
 
@@ -148,7 +150,7 @@ Add ESLint when the project needs stricter linting; update the `lint` script acc
 | Skill | When |
 |-------|------|
 | dockerization-template | Vite frontend Dockerfile, port `3000:5173` |
-| makefile-operations | `bun-add`, `lint-frontend`, `test-frontend` |
+| makefile-operations | `bun-add`, `lint-frontend`, `format-frontend`, `lint-fix-frontend`, `test-frontend` |
 | github-actions | CI calls `make lint` / `make test` |
 
 ## Additional resources

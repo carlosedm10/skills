@@ -87,9 +87,80 @@ urlpatterns = [
 cd backend
 uv init --no-readme
 uv add django djangorestframework psycopg[binary] python-dotenv
-uv add --dev ruff factory-boy
+uv add --dev ruff factory-boy coverage
 uv run django-admin startproject config .
 uv run python manage.py startapp users api/users
 ```
 
 Adjust app names to match the project structure.
+
+## Makefile — Django section
+
+Splice this into the project Makefile in place of a FastAPI/Alembic section. Replace
+`PROJECT_SLUG`. Lifecycle, package managers, shells, logs, lint, and `clean` stay in
+**makefile-operations**.
+
+After `up` / `build`, echo:
+
+```makefile
+	@echo "Django Admin: http://localhost:8000/admin/"
+	@echo "Swagger:      http://localhost:8000/api/docs/"
+	@echo "ReDoc:        http://localhost:8000/api/redoc/"
+	@echo "Frontend:     http://localhost:3000/"
+```
+
+```makefile
+# ----------------------------- Django ----------------------------- #
+.PHONY: startapp createsuperuser migrate migrate-seed makemigrations db-load-schema-test
+
+# Usage: make startapp APP=app_name  — always created under api/
+startapp:
+	docker compose run --rm backend-PROJECT_SLUG uv run python manage.py startapp $(APP) api/$(APP)
+
+createsuperuser:
+	docker compose exec backend-PROJECT_SLUG uv run python manage.py createsuperuser
+
+migrate:
+	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py migrate
+
+migrate-seed: migrate
+	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py loaddata seeds
+
+makemigrations:
+	docker compose exec -T backend-PROJECT_SLUG uv run python manage.py makemigrations
+
+db-load-schema-test:
+	docker compose exec -T -e DJANGO_SETTINGS_MODULE=config.settings.test backend-PROJECT_SLUG uv run python manage.py migrate
+
+# ----------------------------- Testing ----------------------------- #
+# Keep test-frontend / test aggregates from makefile-operations. Replace test-backend with:
+
+.PHONY: test-backend coverage coverage-html
+
+# Usage:
+#   make test-backend
+#   make test-backend TEST=api.users
+test-backend:
+	docker compose exec -T backend-PROJECT_SLUG sh -ceu 'cd /app && uv run python manage.py test --verbosity=1 --force-color --noinput --failfast $(TEST)'
+
+coverage:
+	docker compose exec -T backend-PROJECT_SLUG sh -ceu 'cd /app && uv run coverage run manage.py test --verbosity=1 --noinput && uv run coverage report'
+
+coverage-html:
+	docker compose exec -T backend-PROJECT_SLUG sh -ceu 'cd /app && uv run coverage run manage.py test --verbosity=1 --noinput && uv run coverage html'
+
+# ----------------------------- ⛔️ DANGER ZONE ⛔️ ----------------------------- #
+# Keep `clean` / `clean-builder` from makefile-operations. Add these Django-only atomics:
+
+.PHONY: delete-migrations db-reset-full
+
+delete-migrations:
+	find ./backend/api/*/migrations -type f -name "*.py" ! -name "__init__.py" -delete
+
+db-reset-full: delete-migrations
+	@echo "WARNING: drops ALL tables in the compose Postgres and recreates migrations."
+	docker compose exec -T postgres-PROJECT_SLUG psql -U postgres -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO postgres; GRANT ALL ON SCHEMA public TO public;" || true
+	docker compose run --rm backend-PROJECT_SLUG uv run python manage.py makemigrations
+	docker compose run --rm backend-PROJECT_SLUG uv run python manage.py migrate
+```
+

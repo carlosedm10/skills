@@ -129,10 +129,13 @@ Update `package.json` dev script for Docker binding:
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
     "lint": "next lint",
+    "format": "prettier --write .",
     "start": "next start"
   }
 }
 ```
+
+`format` is what `make format-frontend` runs. Add Prettier as a dev dependency (`bun add -d prettier`) when scaffolding; do not fold `next lint --fix` into this script — that is `make lint-fix-frontend`.
 
 ## Agent may write
 
@@ -152,7 +155,7 @@ Update `package.json` dev script for Docker binding:
 | Skill | When |
 |-------|------|
 | dockerization-template | Next frontend Dockerfile, port `3000:3000` |
-| makefile-operations | `bun-add`, `lint-frontend`, `test-frontend` |
+| makefile-operations | `bun-add`, `lint-frontend`, `format-frontend`, `lint-fix-frontend`, `test-frontend` |
 | github-actions | CI calls `make lint` / `make test` |
 
 ## Additional resources

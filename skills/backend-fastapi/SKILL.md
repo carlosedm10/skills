@@ -107,6 +107,18 @@ python_files = ["test_*.py"]
 - Alembic config stubs
 - `tests/` directories and sample test files
 
+## Makefile — FastAPI / Alembic section
+
+**makefile-operations** owns lifecycle, package managers, shells, logs, lint, and `clean`.
+This skill owns Alembic recipes. Copy the section from [reference.md](reference.md).
+
+| Target | Notes |
+|--------|--------|
+| `migrate` | Bare verb. `alembic upgrade head`. |
+| `alembic-revision` | `MSG="..."`. |
+| `db-load-schema-test` | Test-env upgrade; CI calls this before the suite. |
+| `test-backend` | `uv run pytest`. Filter with `TEST=`. |
+
 ## Agent must NOT execute
 
 - `uv init` / `uv sync` (user runs locally or via Docker after scaffold)
@@ -117,10 +129,10 @@ python_files = ["test_*.py"]
 | Skill | When |
 |-------|------|
 | dockerization-template | Docker setup with uvicorn dev command |
-| makefile-operations | `alembic-upgrade`, `test-backend` (pytest), `lint-backend` (ruff) |
+| makefile-operations | Generic `up`/`down`/`uv-*`/`bun-*`/`lint`/`logs-*`/`clean`; splice this skill's Alembic section in |
 | fastapi-test-generation | Writing endpoint tests |
 | github-actions | CI calls `make lint` / `make test` |
 
 ## Additional resources
 
-- Full file templates: [reference.md](reference.md)
+- File templates and the Alembic Makefile section: [reference.md](reference.md)

@@ -1,6 +1,6 @@
 ---
 name: backend-drf
-description: Scaffolds Django REST Framework backends with uv, ruff, pyproject.toml, and per-app tests/ directories. Django project initialization is human-only — the agent creates folder stubs and provides exact official commands. Use when creating DRF backends or when project-scaffold selects DRF over FastAPI.
+description: Scaffolds Django REST Framework backends with uv, ruff, pyproject.toml, per-app tests/, and Makefile Django targets (migrate, makemigrations, startapp, createsuperuser, coverage, migration reset). Django project initialization is human-only — the agent creates folder stubs and provides exact official commands. Use when creating DRF backends, adding manage.py Make targets, or when project-scaffold selects DRF over FastAPI.
 ---
 
 # Backend DRF
@@ -75,7 +75,7 @@ uv init --no-readme
 
 # Add dependencies
 uv add django djangorestframework psycopg[binary] python-dotenv
-uv add --dev ruff pytest-django
+uv add --dev ruff pytest-django factory-boy coverage
 
 # Create Django project
 uv run django-admin startproject config .
@@ -84,7 +84,8 @@ uv run django-admin startproject config .
 uv run python manage.py startapp users api/users
 ```
 
-Adjust app names and paths to match the project. The `startproject` and `startapp` commands **must** be run by the human — the agent cannot execute them.
+Adjust app names and paths to match the project. `startproject` **must** be run by the human.
+After Compose exists, further apps use `make startapp APP=name` (not a host `manage.py`).
 
 ### Phase 3 — Agent continues after human init
 
@@ -115,6 +116,7 @@ dev = [
     "ruff>=0.8",
     "pytest-django>=4.9",
     "factory-boy>=3.3",
+    "coverage>=7.6",
 ]
 
 [tool.ruff]
@@ -122,22 +124,56 @@ target-version = "py312"
 line-length = 100
 ```
 
+## Makefile — Django section
+
+**makefile-operations** owns lifecycle (`up`/`down`/`build`, never `start`/`stop`), `uv-*` /
+`bun-*`, shells, `logs-*` (never `show-*-logs`), `lint` / `format` / `lint-fix`, and nuclear `clean`.
+This skill owns every `manage.py` target. Copy the full section from [reference.md](reference.md).
+
+| Target | Notes |
+|--------|--------|
+| `startapp` | `APP=name`; always created at `api/$(APP)`. `run --rm`. After Docker exists, this is how new apps are added — not a raw `manage.py` on the host. |
+| `createsuperuser` | `exec` **without** `-T` so the interactive prompts work. |
+| `migrate` | Bare verb. `exec -T` when the stack is up; `run --rm` if it is not. |
+| `migrate-seed` | `migrate` then `loaddata seeds`. |
+| `makemigrations` | Same transport as `migrate`. |
+| `db-load-schema-test` | Test-settings migrate; CI calls this before the suite. |
+| `test-backend` | `manage.py test --verbosity=1 --force-color --noinput --failfast`. Filter with `TEST=` (Django label/path), not a second `tests` target and not pytest `-k`. |
+| `coverage` / `coverage-html` | `coverage run manage.py test` then `report` or `html`. HTML lands in `backend/htmlcov/`. |
+| `delete-migrations` | Danger zone. Deletes `backend/api/*/migrations/*.py` except `__init__.py`. |
+| `db-reset-full` | Danger zone. `delete-migrations`, drop/recreate `public` schema, `makemigrations`, `migrate`. Do not chain `format` into it. |
+
+After `make up` / `make build`, echo:
+
+```
+Django Admin: http://localhost:8000/admin/
+Swagger:      http://localhost:8000/api/docs/
+ReDoc:        http://localhost:8000/api/redoc/
+Frontend:     http://localhost:3000/
+```
+
+(`api/docs` / `api/redoc` assume spectacular or equivalent is wired; still print them so the
+local surface is discoverable.)
+
 ## Agent may write
 
 - `pyproject.toml` stub before human init
 - Settings, URLs, serializers, views after human init
 - `tests/` directories and test files (via django-test-generation)
+- The Django Makefile section (via **makefile-operations** conventions)
 
 ## Agent must NOT execute
 
 - `django-admin startproject`
-- `python manage.py startapp`
-- `python manage.py migrate` (unless user explicitly requests and containers are running)
+- `python manage.py startapp` on the host — use `make startapp APP=…` once Compose exists
+- `python manage.py migrate` / `db-reset-full` / `delete-migrations` unless the user explicitly
+  requests them and containers are running
 
 ## Testing conventions
 
 - Use Django native unit tests: `APITestCase` + `APIClient`
 - Tests live in `tests/` inside each app, not a top-level `tests/` folder
+- Run via `make test-backend` or `make test-backend TEST=api.users`
 - See **django-test-generation** skill for detailed patterns
 
 ## Integration with sibling skills
@@ -145,10 +181,10 @@ line-length = 100
 | Skill | When |
 |-------|------|
 | dockerization-template | Docker setup with `runserver` dev command |
-| makefile-operations | `migrate`, `makemigrations`, `test-backend` (manage.py test) |
+| makefile-operations | Generic `up`/`down`/`uv-*`/`bun-*`/`lint`/`logs-*`/`clean`; splice this skill's Django section in |
 | django-test-generation | Writing DRF endpoint tests |
 | github-actions | CI calls `make lint` / `make test` |
 
 ## Additional resources
 
-- Settings and URL templates: [reference.md](reference.md)
+- Settings, URLs, and the Django Makefile section: [reference.md](reference.md)

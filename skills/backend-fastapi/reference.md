@@ -162,3 +162,29 @@ if context.is_offline_mode():
 else:
     run_migrations_online()
 ```
+
+## Makefile — FastAPI / Alembic section
+
+Splice this into the project Makefile. Replace `PROJECT_SLUG`.
+
+```makefile
+# ----------------------------- FastAPI / Alembic ----------------------------- #
+.PHONY: migrate alembic-revision db-load-schema-test
+
+# migrate is deliberately bare — the verb the framework's own docs use.
+migrate:
+	docker compose exec -T backend-PROJECT_SLUG uv run alembic upgrade head
+
+alembic-revision:
+	docker compose exec -T backend-PROJECT_SLUG uv run alembic revision --autogenerate -m "$(MSG)"
+
+db-load-schema-test:
+	docker compose exec -T -e ENV=test backend-PROJECT_SLUG uv run alembic upgrade head
+```
+
+`test-backend` stays in the Testing section:
+
+```makefile
+test-backend:
+	docker compose exec -T backend-PROJECT_SLUG uv run pytest $(TEST)
+```
