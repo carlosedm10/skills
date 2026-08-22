@@ -13,6 +13,10 @@ description: Scaffolds Django REST Framework backends with uv, ruff, pyproject.t
 
 Use **backend-fastapi** for lightweight APIs without admin or heavy Django infrastructure.
 
+## Environment
+
+Settings read from env vars (`DATABASE_URL`, `SECRET_KEY`, etc.) via `python-dotenv` in `config/settings.py`. Locally, **env-secrets** loads them via `.envrc`/direnv from gitignored `.env`. In Docker, Compose passes the same `.env` via `env_file`.
+
 ## Stack
 
 | Tool | Purpose |

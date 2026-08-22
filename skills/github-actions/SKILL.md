@@ -66,12 +66,28 @@ Triggers on `push` to `main`. Runs:
 1. `make build`
 2. Additional release/deploy targets if defined in Makefile (e.g. `make release`)
 
+## Secret management in CI
+
+| Scenario | Approach |
+|----------|----------|
+| Lint/test (PR checks) | `cp .env_template .env` — safe dev defaults from **env-secrets** |
+| Production deploy | GitHub Secrets → `env:` block on workflow/job; never commit to repo |
+| Custom CI env assembly | Add `make ci-env` target first, then call it from workflow |
+
+Rules:
+
+- Never log secret values in CI output.
+- Never put secrets in `.envrc` or committed files.
+- If a Makefile target needs production secrets, inject them as workflow `env:` vars before `make` — still no inline tool commands.
+
+See **env-secrets** for the full local/CI/production secret layers.
+
 ## Rules for workflow YAML
 
 1. **No inline tool commands** — only `make <target>`.
 2. **Use `docker compose`** via Makefile, not directly in YAML (except Docker setup step).
 3. **Always tear down** with `make down` in a final step with `if: always()`.
-4. **Set env vars** from GitHub secrets only when the Makefile target expects them — do not pass secrets to ad-hoc commands.
+4. **Set env vars** from GitHub Secrets via workflow `env:` only when the Makefile target expects them — do not pass secrets to ad-hoc commands.
 5. **Pin action versions** (`actions/checkout@v4`, `docker/setup-buildx-action@v3`).
 6. **Use `-T` flag** is handled inside Makefile targets (`exec -T`), not in workflow YAML.
 
@@ -96,7 +112,8 @@ Never add the tool command directly to the workflow YAML.
 | Skill | Role |
 |-------|------|
 | makefile-operations | Defines the CI contract targets |
-| dockerization-template | Docker setup that `make build` / `make up` use |
+| env-secrets | `.env_template` for CI defaults; GitHub Secrets for production |
+| dockerization-template | Docker setup that `make build` / `make start` use |
 | project-scaffold | Invokes this skill as final scaffold step |
 
 ## Additional resources

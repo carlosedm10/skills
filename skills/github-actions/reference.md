@@ -96,6 +96,22 @@ Add release/deploy steps only as Makefile targets:
   run: make lint
 ```
 
+## CI secrets (production deploys)
+
+For lint/test, `cp .env_template .env` is sufficient (safe dev defaults). For production secrets, inject via GitHub Secrets — see **env-secrets/reference.md** for the pattern.
+
+```yaml
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: make release
+```
+
 ## Backend-only CI (no frontend service)
 
 Same `ci.yml` — the Makefile `lint` and `test` aggregates handle missing frontend targets. Ensure Makefile defines:
