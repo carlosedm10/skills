@@ -114,6 +114,7 @@ Never add the tool command directly to the workflow YAML.
 | makefile-operations | Defines the CI contract targets |
 | env-secrets | `.env_template` for CI defaults; GitHub Secrets for production |
 | dockerization-template | Docker setup that `make build` / `make start` use |
+| hetzner-deploy | Production `deploy.yml` (rsync + remote compose); keep CI and deploy separate |
 | project-scaffold | Invokes this skill as final scaffold step |
 
 ## Additional resources

@@ -98,7 +98,7 @@ Keep service names stable — the Makefile and `docker compose` commands referen
 - `env_file: [.env]` on backend and postgres.
 - Dedicated bridge network per project (`appnet_{PROJECT_SLUG}`).
 - `frontend` `depends_on: [backend]` when frontend exists; backend waits on healthy postgres only.
-- Do not put production/nginx/certbot in this template — that is a separate prod compose file.
+- Do not put production/nginx/certbot in this template — VPS production is **hetzner-deploy** (`compose.prod.yaml` + shared Caddy).
 
 ## Checklist
 

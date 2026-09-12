@@ -61,7 +61,7 @@ When invoked by **project-scaffold** or directly:
 | Docker Compose | `env_file: [.env]` at repo root | Same `.env` file Compose reads |
 | CI (lint/test) | `cp .env_template .env` | Safe dev defaults; see **github-actions** |
 | CI (production) | GitHub Secrets → env vars before `make` | Never written to `.env` in logs |
-| Production deploy | Platform secrets (Vercel, Railway, etc.) | Outside repo |
+| Production deploy | Server `.env` on the VPS (see **hetzner-deploy**) or PaaS secrets | Never committed; Actions must not rsync `.env` |
 
 ## Rules
 
